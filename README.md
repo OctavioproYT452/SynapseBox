@@ -11,7 +11,7 @@ Sube, organiza, edita y comparte archivos desde cualquier dispositivo, con usuar
 
 </div>
 
-> **Versión 2.15.0.** Qué ha cambiado en esta versión: consulta [RELEASE.md](RELEASE.md).
+> **Versión 2.15.2.** Qué ha cambiado en esta versión: consulta [RELEASE.md](RELEASE.md).
 
 ---
 
@@ -351,7 +351,7 @@ Disponible en `/admin/` solo para administradores. Usa el mismo menú de usuario
 - La versión instalada está en `data/version.json`:
 
   ```json
-  { "version": "2.15.0" }
+  { "version": "2.15.2" }
   ```
 
 - Cada 2 minutos el servidor lee ese archivo local y lo compara con el `data/version.json` publicado en GitHub. Si el de GitHub es más nuevo (se comparan los números: `2.10` es mayor que `2.9`), los **administradores** ven un aviso de nueva versión con instrucciones para actualizar.
@@ -453,8 +453,8 @@ Desde **Admin → Discord → Abrir el editor de comandos** (`/admin/discord.htm
 - **Acceso por comando:** todos, solo cuentas vinculadas, solo admins de SynapseBox, o admins y gestores del servidor.
 - **Carpetas:** organiza los comandos en carpetas (hasta 3 niveles), arrastra un comando a una carpeta para moverlo, renómbralas o bórralas.
 - **Archivos:** al guardar, cada comando se escribe como un archivo `.fcs` en `data/discord-commands/<carpeta>/`. Se compilan una sola vez y se ejecutan desde la memoria; puedes hacer copia de seguridad de esa carpeta o editar los archivos a mano (se leen al reiniciar).
-- **Wiki:** `/admin/discord-wiki.html` (también desde el editor) con guías, recetas y la referencia de las 178 funciones con ejemplos, filtros por categoría, marca de «nuevo» y buscador (tecla `/`).
-- **Editor:** explorador con carpetas (editar, duplicar, borrar y arrastrar), propiedades, panel de problemas, panel de pruebas y barra de estado; resaltado de sintaxis (funciones, bloques, corchetes por niveles, errores en rojo), autocompletado al escribir `$`, números de línea con errores marcados, panel de funciones con buscador y **prueba en vivo** que no envía nada a Discord (las acciones como dar roles o expulsar solo se describen).
+- **Wiki:** `/admin/discord-wiki.html` (también desde el editor) con guías, recetas y la referencia de las 227 funciones con ejemplos, filtros por categoría, marca de «nuevo» y buscador (tecla `/`).
+- **Editor (rediseñado en la 2.15.2):** explorador con carpetas (editar, duplicar, borrar y arrastrar), propiedades, panel de problemas, panel de pruebas y barra de estado; resaltado de sintaxis (funciones, bloques, corchetes por niveles, errores en rojo), autocompletado al escribir `$`, números de línea con errores marcados, panel de funciones con buscador y **prueba en vivo** que no envía nada a Discord (las acciones como dar roles o expulsar solo se describen). Desde la 2.15.2 añade línea actual resaltada, sangría automática dentro de `$if`/`$for`/`$while`, **Tab / Mayús+Tab** para sangrar varias líneas, **Ctrl+/** para comentar, **Ctrl+Enter** para probar, `\[` sin cierre automático (para JSON), autocompletado que se abre hacia arriba si no cabe y, en móvil, una barra con `$ [ ] ; \ { }` y texto a 16 px (sin zoom al escribir).
 - **Comandos de prefijo y de mensaje** necesitan el permiso especial «Message Content Intent» (Developer Portal → Bot → Privileged Gateway Intents). Sin él, el bot arranca igual y los comandos slash funcionan.
 
 ```text
@@ -472,13 +472,15 @@ $footer[Tu espacio: $sbSpace de $sbQuota]
 
 **Sintaxis:** `$funcion` o `$funcion[arg1;arg2]` (se pueden anidar). Escapes: `\$ \; \[ \]`. Comentarios: líneas que empiezan por `//` o `$c[texto]`. Bloques: `$if / $elseif / $else / $endif`, `$for[var;desde;hasta] … $endfor` y `$while[cond] … $endwhile` (máx. 200 vueltas). Operadores: `== != > < >= <= ~=` (contiene), `&&`, `||`.
 
-**Funciones (205):** contexto (`$username`, `$message[1]`, `$option[x]`, `$mentioned`, `$serverName`, `$hasRole`…), respuesta (`$title`, `$description`, `$color`, `$addField`, `$ephemeral`, `$sendMessage`, `$sendDM` (también a otro usuario por ID), `$addReaction`…), lógica (`$onlyIf`, `$onlyAdmin`, `$onlyPerms`, `$onlyRoles`, `$onlyLinked`, `$cooldown`, `$stop`, `$set/$get`), variables guardadas por usuario, servidor o globales (`$setUserVar`, `$getServerVar`, `$topUserVar`…), matemáticas (`$calc`, `$random`, `$round`…), texto (`$upper`, `$replace`, `$split`, `$contains`, `$choose`…), tiempo (`$date`, `$discordTime`, `$duration`), SynapseBox (`$sbUser`, `$sbSpace`, `$sbQuota`, `$sbUsers`, `$sbVersion`) y moderación (`$giveRole`, `$takeRole`, `$kick`, `$ban`, `$timeout`, `$deleteMessages`). La lista completa, con descripción de cada una, está en el panel *Funciones* del editor.
+**Funciones (227):** contexto (`$username`, `$message[1]`, `$option[x]`, `$mentioned`, `$serverName`, `$hasRole`…), respuesta (`$title`, `$description`, `$color`, `$addField`, `$ephemeral`, `$sendMessage`, `$sendDM` (también a otro usuario por ID), `$addReaction`…), lógica (`$onlyIf`, `$onlyAdmin`, `$onlyPerms`, `$onlyRoles`, `$onlyLinked`, `$cooldown`, `$stop`, `$set/$get`), variables guardadas por usuario, servidor o globales (`$setUserVar`, `$getServerVar`, `$topUserVar`…), matemáticas (`$calc`, `$random`, `$round`…), texto (`$upper`, `$replace`, `$split`, `$contains`, `$choose`…), tiempo (`$date`, `$discordTime`, `$duration`), SynapseBox (`$sbUser`, `$sbSpace`, `$sbQuota`, `$sbUsers`, `$sbVersion`) y moderación (`$giveRole`, `$takeRole`, `$kick`, `$ban`, `$timeout`, `$deleteMessages`). La lista completa, con descripción de cada una, está en el panel *Funciones* del editor.
 
 **Novedades de SBScript en la 2.10.11:** tarjetas completas (`$footerIcon`, `$authorIcon`, `$authorUrl`, `$titleUrl`), captcha con imagen (`$genCaptcha` genera un PNG sin dependencias, lo incluye en la tarjeta y guarda el código en la variable de usuario `captcha`; `$checkCaptcha` y `$clearCaptcha` lo verifican y lo borran), contadores (`$incUserVar`, `$incServerVar`, `$incGlobalVar`, `$rankUserVar`), utilidades de texto, números y fechas (`$progressBar`, `$percent`, `$randomString`, `$truncate`, `$parseDate`, `$timeAgo`…), más moderación (`$setNickname`, `$unban`, `$slowmode`) y **funciones de IA** (`$ai`, `$aiSummarize`, `$aiTranslate`, `$aiClassify`, `$aiSentiment`, `$aiModerate`…) que usan la IA configurada en el panel. Las funciones de IA solo envían y reciben texto, tratan lo que escribe el usuario como datos, limitan a 3 llamadas por ejecución y cuentan en el límite de IA de la cuenta vinculada (o 10 por hora si no la hay); en comandos slash el bot responde «pensando…» mientras espera.
 
 **Roles de autoservicio (2.10.11):** `$grantRole[idRol]` y `$revokeRole[idRol]` los ejecuta el **bot**, así que quien usa el comando no necesita permisos (ideal para el captcha). El bot necesita «Gestionar roles», su rol debe estar por encima del rol a dar, y por seguridad se rechazan roles con permisos de gestión, de integraciones y @everyone. `$canGrantRole` y `$botHasPerm` permiten comprobarlo antes.
 
-**Hablar de otra persona (2.10.11):** `$isLinked`, `$isFcAdmin`, `$sbUser`, `$sbSpace`, `$sbQuota` y `$sbPercent` aceptan un ID o mención de Discord (`$sbSpace[$mentioned[1]]`), igual que `$username`, `$avatar`, `$hasRole`, `$getUserVar`… Así `!perfil @juan` muestra el perfil de Juan. Ver la guía «Hablar de otra persona» de la wiki.
+**Novedades de SBScript en la 2.15.2:** `$jsonArrayCount` sin claves devuelve cuántas listas hay en todo el JSON cargado con `$jsonParse` (con clave sigue dando los elementos de esa lista); JSON: `$jsonObjectCount`, `$jsonLength`, `$jsonKeys`, `$jsonType`, `$jsonArrayUnique`, `$jsonArrayRemove`, `$jsonArraySum`; texto: `$removeAccents`, `$between`, `$charAt`, `$wordAt`, `$isEmpty`, `$replaceFirst`, `$base64Encode`, `$base64Decode`, `$urlDecode`; matemáticas: `$sqrt`, `$power`, `$mod`, `$isNumber`, `$range`, `$lerp`. `$isFcAdmin` pasa a llamarse `$isSbAdmin`; los comandos guardados con el nombre antiguo, los botones ya enviados (`fcs:`) y los archivos `.fcs` siguen funcionando (al guardar, un comando pasa a `.sbs`).
+
+**Hablar de otra persona (2.10.11):** `$isLinked`, `$isSbAdmin` (antes `$isFcAdmin`, que sigue funcionando), `$sbUser`, `$sbSpace`, `$sbQuota` y `$sbPercent` aceptan un ID o mención de Discord (`$sbSpace[$mentioned[1]]`), igual que `$username`, `$avatar`, `$hasRole`, `$getUserVar`… Así `!perfil @juan` muestra el perfil de Juan. Ver la guía «Hablar de otra persona» de la wiki.
 
 **Novedades de SBScript en la 2.12.1:** `$average`, `$median`, `$dice`, `$coinFlip` (matemáticas), `$isPalindrome`, `$initials` (texto), `$weekday` y `$daysUntil` (tiempo). Ya están en la wiki y en el editor.
 

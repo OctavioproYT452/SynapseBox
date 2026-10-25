@@ -1,20 +1,21 @@
-# Versión 2.15.0
+# Versión 2.15.2
 
-Sistema de plugins: amplía SynapseBox con código propio y compártelo en un repositorio de GitHub.
+Más funciones para SBScript, renombrado `fc` → `sb` y editor de comandos rediseñado.
 
 ## Novedades
-- **Plugins en Node.js:** un plugin puede cambiar iconos, imágenes, CSS, rutas, funciones y comportamiento, tanto en el servidor (`server.js`) como en las páginas (`client.js` y `style.css`). Se guardan en `data/plugins/<id>/`.
-- **Activar y desactivar en caliente:** nueva pestaña **Admin → Plugins**. Los cambios se aplican al instante, sin reiniciar. El estado se guarda en `data/plugins-state.json`.
-- **API para plugins (servidor):** `use`, `get`, `post`, `serveFile`, `serveDir`, `on`/`emit`, `transformHtml`, `inject`, `data` (almacenamiento propio), `db`, `core()`… Los plugins se montan **antes** que las rutas de SynapseBox, así que pueden sustituirlas. SDK de cliente: `window.SynapseBox`.
-- **Descargar plugins:** pestaña «Repositorio» con las imágenes, categorías y botón Descargar/Actualizar, leídos de https://github.com/OctavioproYT452/SynapseBox-Puglins/.
-- **Subir plugins:** formulario con **título, descripción, categoría, versión, de 1 a 5 imágenes (mínimo una) y archivo(s) obligatorios**. Node ejecuta `git` y crea una **rama y un pull request directamente en el repositorio principal (sin forks)** en `Categoría/nombre-del-plugin/` con su `plugin.json`, `images/` y los archivos. La cuenta debe tener permiso de escritura: se vincula desde el panel (código de dispositivo, sin clave en archivos) o con `PLUGINS_GITHUB_TOKEN` (push directo).
-- **Variables nuevas (opcionales):** `PLUGINS_REPO`, `PLUGINS_GITHUB_CLIENT_ID` y `PLUGINS_GITHUB_TOKEN`.
-- **Documentación:** web aparte con la guía para crear plugins y 6 plugins de ejemplo ya incluidos en el repositorio.
+- **Nuevas funciones (22):**
+  - JSON: `$jsonArrayCount` ahora, **sin claves, devuelve cuántas listas hay en todo el JSON** cargado con `$jsonParse` (las anidadas también cuentan; con una clave sigue dando los elementos de esa lista), `$jsonObjectCount`, `$jsonLength`, `$jsonKeys`, `$jsonType`, `$jsonArrayUnique`, `$jsonArrayRemove`, `$jsonArraySum`.
+  - Texto: `$removeAccents`, `$between`, `$charAt`, `$wordAt`, `$isEmpty`, `$replaceFirst`, `$base64Encode`, `$base64Decode`, `$urlDecode`.
+  - Matemáticas: `$sqrt`, `$power`, `$mod`, `$isNumber`, `$range`, `$lerp`.
+- **Renombrado `fc` → `sb`:** `$isFcAdmin` pasa a `$isSbAdmin`; internamente los botones usan `sbs:`, los modales `sb-…` y los comandos se guardan como `.sbs`. Los nombres antiguos (`$isFcAdmin`, `$fcUser`…, botones `fcs:`, archivos `.fcs`, modales `fc-…`) **siguen funcionando**.
+- **Editor rediseñado:** nuevo estilo (barra lateral, pestaña del comando, panel de propiedades, panel de funciones, panel de problemas/pruebas y barras de desplazamiento), línea actual resaltada, autocompletado que se abre hacia arriba si no cabe, atajos (**Tab / Mayús+Tab**, **Ctrl+/**, **Ctrl+Enter**), sangría automática en `$if`/`$for`/`$while` y barra de símbolos en móvil.
+- **Errores del editor corregidos:** el panel de funciones heredaba márgenes de la wiki; escribir `\[` ya no añade un `]` de más (necesario para JSON); el tamaño y la altura de línea del código eran fijos (ahora son variables y el autocompletado y los saltos a errores se calculan con ellas); el teclado de iOS hacía zoom al escribir; el panel de propiedades ocupaba media pantalla en móvil (ahora empieza plegado).
+- **Wiki y wiki de la IA:** las funciones nuevas llevan ejemplo y la marca «Nuevo»; la IA del editor las conoce automáticamente.
 
-## Seguridad
-- Los plugins se ejecutan con acceso total al servidor: solo se gestionan desde administradores y conviene activar únicamente los de confianza.
-- Rutas de archivos validadas (sin `..`), extensiones permitidas, límites de tamaño (5 MB por archivo, 5 imágenes, 20 archivos), `git` sin shell y token oculto en los errores. El código `server.js` de un plugin nunca se sirve al navegador.
+## Compatibilidad
+- Sin cambios en el servidor, la base de datos ni los plugins. Las cookies (`fc_sid`), claves del navegador y variables de entorno se mantienen para no cerrar sesiones ni romper instalaciones.
 
 ## Archivos modificados
-- `src/services/plugins.js` (nuevo), `src/routes/plugins.js` (nuevo), `public/plugins-sdk.js` (nuevo), `src/index.js`, `public/admin/index.html`, `public/js/admin.js`, `src/discord/script/wiki.js`, `.env.example`
+- `src/discord/script/functions.js`, `src/discord/script/httpjson.js`, `src/discord/script/wiki.js`, `src/discord/custom.js`, `src/discord/index.js`, `src/discord/commands.js`, `src/routes/discord-custom.js`
+- `public/js/dc-editor.js`, `public/dc-editor.css`
 - `README.md`, `RELEASE.md`, `package.json`, `data/version.json`

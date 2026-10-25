@@ -51,7 +51,7 @@ function vdel(ctx, sc, key, name) { if (ctx.dry) ctx.dryVars?.delete(`${sc}|${ke
 const num2 = (v) => { const x = R.num(v); return isNaN(x) ? 0 : x; };
 
 // Cuenta de SynapseBox de quien usa el comando o, si se indica un ID/mención de Discord, de esa persona (null si no está vinculada o está suspendida)
-function sbOf(ctx, v) { const uid = id(v); if (!uid || uid === ctx.user.id) return ctx.fc || null; const u = dstore.userByDiscord(uid); return u && !u.suspended ? u : null; }
+function sbOf(ctx, v) { const uid = id(v); if (!uid || uid === ctx.user.id) return ctx.sb || null; const u = dstore.userByDiscord(uid); return u && !u.suspended ? u : null; }
 const sbNeed = (ctx, v) => { const u = sbOf(ctx, v); if (!u) throw Error(id(v) && id(v) !== ctx.user.id ? "esa persona no tiene la cuenta de SynapseBox vinculada" : "necesita la cuenta vinculada"); return u; };
 
 // ---- calculadora segura (sin eval) ----
@@ -103,7 +103,7 @@ F(C1, "ownerId", "", "ID del dueño del servidor.", c => c.guild?.ownerId ?? "")
 F(C1, "isOwner", "[id]", "true si el usuario es el dueño del servidor.", (c, a) => (c.guild?.ownerId ?? "") === (id(a[0]) || c.user.id));
 F(C1, "boostCount", "", "Número de mejoras (boosts) del servidor.", c => c.guild?.premiumSubscriptionCount ?? 0);
 F(C1, "channelTopic", "", "Tema del canal actual (vacío si no tiene).", c => c.channel?.topic ?? "");
-F(C1, "isFcAdmin", "[idUsuario]", "true si esa persona (por defecto, quien usa el comando) tiene su cuenta de SynapseBox vinculada y es administrador.", (c, a) => !!sbOf(c, a[0])?.is_admin);
+F(C1, "isSbAdmin", "[idUsuario]", "true si esa persona (por defecto, quien usa el comando) tiene su cuenta de SynapseBox vinculada y es administrador.", (c, a) => !!sbOf(c, a[0])?.is_admin);
 F(C1, "isLinked", "[idUsuario]", "true si esa persona (por defecto, quien usa el comando) tiene una cuenta de SynapseBox vinculada.", (c, a) => !!sbOf(c, a[0]));
 
 // =================== Respuesta ===================
@@ -143,7 +143,7 @@ function pushBtn(c, b) { if (c.out.buttons.length >= 25) throw Error("máximo 25
 F(CB, "addButton", "etiqueta;id;[estilo];[emoji];[desactivado]", "Añade un botón al mensaje (máx. 25, 5 por fila). Al pulsarlo se ejecuta el comando de tipo «Botón» cuyo activador sea el id. Estilos: azul, gris, verde, rojo. Truco: pon datos en el id separados por «:» (ej. rol:123) y léelos con $buttonArg.", (c, a) => {
   const label = S(a[0]).slice(0, 80), bid = S(a[1]).trim(); if (!label && !btnEmoji(a[3])) throw Error("el botón necesita una etiqueta o un emoji"); if (!BTN_ID.test(bid)) throw Error("el id del botón solo admite letras, números y _ : . - (máx. 80)");
   const st = STYLE[S(a[2], "azul").trim().toLowerCase()]; if (!st) throw Error("estilo no válido (azul, gris, verde, rojo)");
-  const b = { type: 2, style: st, label: label || undefined, custom_id: "fcs:" + bid }; const em = btnEmoji(a[3]); if (em) b.emoji = em; if (R.truthy(S(a[4], "no"))) b.disabled = true; return pushBtn(c, b);
+  const b = { type: 2, style: st, label: label || undefined, custom_id: "sbs:" + bid }; const em = btnEmoji(a[3]); if (em) b.emoji = em; if (R.truthy(S(a[4], "no"))) b.disabled = true; return pushBtn(c, b);
 }, { q: true, min: 2 });
 F(CB, "addLinkButton", "etiqueta;url;[emoji]", "Añade un botón que abre un enlace (solo http/https). No ejecuta ningún comando.", (c, a) => {
   const url = S(a[1]).trim(); if (!/^https?:\/\//i.test(url)) throw Error("el enlace debe empezar por http:// o https://");
@@ -159,10 +159,10 @@ F(CB, "isButtonClick", "", "true si el comando se ejecuta porque alguien pulsó 
 // =================== Lógica ===================
 const C3 = "Lógica y control";
 F(C3, "onlyIf", "condición;mensajeSiFalla", "Detiene el comando (y muestra el mensaje) si la condición no se cumple.", async (c, a) => { if (!(await R.cond(c, a[0] || []))) throw new R.Stop(a[1] ? await R.ev(c, a[1]) : ""); }, { lazy: true, min: 1, q: true });
-F(C3, "onlyAdmin", "[mensaje]", "Solo para administradores de SynapseBox (vinculados) o con permiso «Gestionar servidor».", (c, a) => { if (!(c.fc?.is_admin || perm(c, "ManageGuild"))) throw new R.Stop(S(a[0], "Solo los administradores pueden usar este comando.")); }, { q: true });
+F(C3, "onlyAdmin", "[mensaje]", "Solo para administradores de SynapseBox (vinculados) o con permiso «Gestionar servidor».", (c, a) => { if (!(c.sb?.is_admin || perm(c, "ManageGuild"))) throw new R.Stop(S(a[0], "Solo los administradores pueden usar este comando.")); }, { q: true });
 F(C3, "onlyPerms", "permisos;[mensaje]", "Solo quien tenga TODOS los permisos de Discord (separados por coma).", (c, a) => { for (const p of S(a[0]).split(",")) if (p.trim() && !perm(c, p)) throw new R.Stop(S(a[1], "No tienes permiso para usar este comando.")); }, { q: true, min: 1 });
 F(C3, "onlyRoles", "idRoles;[mensaje]", "Solo quien tenga alguno de esos roles (IDs separados por coma).", (c, a) => { if (c.dry) return; const ok = S(a[0]).split(",").some(r => c.member?.roles?.cache?.has?.(id(r))); if (!ok) throw new R.Stop(S(a[1], "No tienes el rol necesario.")); }, { q: true, min: 1 });
-F(C3, "onlyLinked", "[mensaje]", "Solo para quien haya vinculado su cuenta de SynapseBox.", (c, a) => { if (!c.fc) throw new R.Stop(S(a[0], "Primero vincula tu cuenta con /vincular.")); }, { q: true });
+F(C3, "onlyLinked", "[mensaje]", "Solo para quien haya vinculado su cuenta de SynapseBox.", (c, a) => { if (!c.sb) throw new R.Stop(S(a[0], "Primero vincula tu cuenta con /vincular.")); }, { q: true });
 F(C3, "cooldown", "segundos;[mensaje]", "Limita cada cuánto puede usarlo cada persona (máx. 1 día).", (c, a) => { if (c.dry) return; const k = c.cmd.id + "|" + c.user.id, t = Date.now(), s = Math.min(86400, N(a[0], 5)), nx = cool.get(k) || 0; if (t < nx) throw new R.Stop(S(a[1], `Espera ${human((nx - t) / 1000 + 0.99)} para usarlo otra vez.`)); cool.set(k, t + s * 1000); if (cool.size > 5000) for (const [x, v] of cool) if (v < t) cool.delete(x); }, { q: true, min: 1 });
 F(C3, "checkCaptcha", "texto", "true si el texto coincide con el captcha que se le generó a quien usa el comando (sin distinguir mayúsculas). Si acierta, el captcha se borra; tras 5 fallos seguidos también se invalida.", (c, a) => {
   const code = vget(c, "user", c.user.id, "captcha"); if (!code) return false;
@@ -259,6 +259,23 @@ F(C5, "average", "a;b;…", "Promedio de varios números.", (c, a) => +(a.reduce
 F(C5, "dice", "[dados];[caras]", "Tira dados (1 por defecto, de 6 caras; máx. 20 dados y 1000 caras). Ej.: $dice[2;6] → «🎲 4 + 2 = 6».", (c, a) => { const n = Math.min(20, Math.max(1, Math.floor(N(a[0], 1)))), f = Math.min(1000, Math.max(2, Math.floor(N(a[1], 6)))); const r = Array.from({ length: n }, () => 1 + Math.floor(Math.random() * f)); return n === 1 ? `🎲 ${r[0]}` : `🎲 ${r.join(" + ")} = ${r.reduce((x, y) => x + y, 0)}`; });
 F(C6, "isPalindrome", "texto", "true si el texto se lee igual al derecho y al revés (ignora mayúsculas, acentos y símbolos).", (c, a) => { const t = S(a[0]).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9ñ]/g, ""); return t.length > 0 && t === [...t].reverse().join(""); }, { min: 1 });
 F(C6, "initials", "texto;[máx]", "Iniciales de cada palabra en mayúsculas (máx. 10). Ej.: «juan pérez» → JP.", (c, a) => S(a[0]).split(/\s+/).filter(Boolean).map(w => [...w][0].toUpperCase()).join("").slice(0, Math.min(10, Math.max(1, N(a[1], 10)))), { min: 1 });
+// =================== Novedades 2.15.2: más texto y matemáticas ===================
+const noAcc = s => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+F(C6, "removeAccents", "texto", "Quita las tildes y diéresis (á → a, ñ → n).", (c, a) => noAcc(S(a[0])), { min: 1 });
+F(C6, "between", "texto;inicio;fin", "Lo que hay entre dos textos. Ej.: $between[a(hola)b;(;)] → hola.", (c, a) => { const t = S(a[0]), i = t.indexOf(S(a[1])); if (i < 0) return ""; const s = i + S(a[1]).length, j = S(a[2]) ? t.indexOf(S(a[2]), s) : -1; return j < 0 ? "" : t.slice(s, j); }, { min: 3 });
+F(C6, "charAt", "texto;posición", "El carácter en esa posición (desde 1; negativa = desde el final).", (c, a) => { const ch = [...S(a[0])], n = N(a[1]); return ch.at(n > 0 ? n - 1 : n) ?? ""; }, { min: 2 });
+F(C6, "wordAt", "texto;n", "La palabra n del texto (desde 1; negativa = desde el final).", (c, a) => { const w = S(a[0]).split(/\s+/).filter(Boolean), n = N(a[1]); return w.at(n > 0 ? n - 1 : n) ?? ""; }, { min: 2 });
+F(C6, "isEmpty", "texto", "true si el texto está vacío o solo tiene espacios.", (c, a) => !S(a[0]).trim(), { min: 1 });
+F(C6, "replaceFirst", "texto;buscar;reemplazo", "Reemplaza solo la primera aparición.", (c, a) => { const t = S(a[0]), s = S(a[1]), i = s ? t.indexOf(s) : -1; return i < 0 ? t : t.slice(0, i) + S(a[2]) + t.slice(i + s.length); }, { min: 3 });
+F(C6, "base64Encode", "texto", "Codifica el texto en Base64.", (c, a) => Buffer.from(S(a[0]).slice(0, 4000)).toString("base64"), { min: 1 });
+F(C6, "base64Decode", "texto", "Decodifica un texto en Base64 (vacío si no es válido).", (c, a) => { const s = S(a[0]).trim(); return /^[A-Za-z0-9+/_-]*={0,2}$/.test(s) && s.length <= 6000 ? Buffer.from(s, "base64").toString("utf8") : ""; }, { min: 1 });
+F(C6, "urlDecode", "texto", "Decodifica un texto de un enlace (%20 → espacio).", (c, a) => { try { return decodeURIComponent(S(a[0])); } catch { return S(a[0]); } }, { min: 1 });
+F(C5, "sqrt", "número", "Raíz cuadrada (error si es negativo).", (c, a) => { const x = N(a[0]); if (x < 0) throw Error("no existe la raíz de un número negativo"); return +Math.sqrt(x).toFixed(10); }, { min: 1 });
+F(C5, "power", "base;exponente", "Eleva un número a una potencia (máx. exponente 1000).", (c, a) => { const r = N(a[0]) ** Math.max(-1000, Math.min(1000, N(a[1]))); if (!isFinite(r)) throw Error("el resultado es demasiado grande"); return +r.toFixed(10); }, { min: 2 });
+F(C5, "mod", "a;b", "Resto de dividir a entre b.", (c, a) => { if (!N(a[1])) throw Error("no se puede dividir entre 0"); return N(a[0]) % N(a[1]); }, { min: 2 });
+F(C5, "isNumber", "texto", "true si el texto es un número válido.", (c, a) => S(a[0]).trim() !== "" && !isNaN(R.num(S(a[0]).trim())), { min: 1 });
+F(C5, "range", "desde;hasta;[paso]", "Lista de números separados por coma (máx. 100). Ej.: $range[1;5] → 1, 2, 3, 4, 5.", (c, a) => { const d = N(a[0]), h = N(a[1]), p = Math.abs(N(a[2], 1)) || 1, o = []; if (d <= h) for (let x = d; x <= h && o.length < 100; x += p) o.push(+x.toFixed(10)); else for (let x = d; x >= h && o.length < 100; x -= p) o.push(+x.toFixed(10)); return o.join(", "); }, { min: 2 });
+F(C5, "lerp", "desde;hasta;t", "Valor entre dos números según t (0 a 1). Ej.: $lerp[0;100;0.25] → 25.", (c, a) => +(N(a[0]) + (N(a[1]) - N(a[0])) * N(a[2])).toFixed(10), { min: 3 });
 // =================== Tiempo ===================
 const C7 = "Tiempo";
 F(C7, "unix", "", "Segundos desde 1970 (ahora).", () => Math.floor(Date.now() / 1000));
@@ -326,7 +343,7 @@ async function askAI(c, task, text) {
   if (!ai.enabled()) throw Error("la IA no está activada: configúrala en el panel de administración");
   if (c.out.ai >= 3) throw Error("máximo 3 llamadas a la IA por ejecución");
   c.out.ai++; const t0 = Date.now();
-  try { return await ai.ask({ u: c.fc, did: c.user.id, system: c.aiSystem, free: c.dry, prompt: text === undefined ? task : `${task}\n\n<datos>\n${S(text).slice(0, 4000)}\n</datos>` }); }
+  try { return await ai.ask({ u: c.sb, did: c.user.id, system: c.aiSystem, free: c.dry, prompt: text === undefined ? task : `${task}\n\n<datos>\n${S(text).slice(0, 4000)}\n</datos>` }); }
   finally { c.deadline += Date.now() - t0; } // el tiempo de espera de la IA no cuenta para el límite de 4 s
 }
 F(CA, "aiAvailable", "", "true si la IA está configurada (para dar una alternativa si no lo está).", () => ai.enabled());
@@ -345,8 +362,9 @@ F(CA, "aiModerate", "texto", "true si la IA considera el texto ofensivo, acoso, 
 // =================== HTTP y JSON (httpjson.js) ===================
 require("./httpjson")(F, { S, N, act });
 
-// Los comandos guardados antes del cambio de nombre (FCScript → SBScript) usaban $fcUser, $fcSpace… Siguen funcionando, sin aparecer en la wiki.
+// Los comandos guardados antes del cambio de nombre (FCScript → SBScript) usaban $fcUser, $fcSpace, $isFcAdmin… Siguen funcionando, sin aparecer en la wiki.
 for (const n of ["User", "Space", "Quota", "Percent", "Users", "Version"]) FN["fc" + n.toLowerCase()] = FN["sb" + n.toLowerCase()];
+FN["isfcadmin"] = FN["issbadmin"];
 
 const BLOCKDOCS = [
   { n: "if", a: "condición", d: "Empieza una condición. Operadores: == != > < >= <= ~= (contiene), && (y), || (o).", c: "Bloques", blk: true },

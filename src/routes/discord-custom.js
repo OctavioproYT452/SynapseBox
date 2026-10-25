@@ -38,7 +38,7 @@ router.post("/api/admin/discord/cmds/delete", needAdmin, wrap(async (req, res) =
 }));
 router.post("/api/admin/discord/cmds/check", needAdmin, wrap(async (req, res) => res.json({ errors: custom.checkCode(req.body?.code, req.body?.meta) })));
 router.post("/api/admin/discord/cmds/test", needAdmin, wrap(async (req, res) => {
-  const b = req.body || {}; res.json(await custom.dry(b.code, b.meta, { args: b.args, options: b.options || {}, fc: req.user }));
+  const b = req.body || {}; res.json(await custom.dry(b.code, b.meta, { args: b.args, options: b.options || {}, sb: req.user }));
 }));
 router.post("/api/admin/discord/folders", needAdmin, wrap(async (req, res) => {
   const b = req.body || {}; custom.folder(String(b.action), String(b.path || ""), b.to, !!b.force);

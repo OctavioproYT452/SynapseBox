@@ -91,7 +91,7 @@ module.exports = function build(D) {
     if (cur) return say(i, `Ya tienes vinculada la cuenta **${md(cur.username)}**. Si quieres cambiarla, usa **/desvincular** primero.`);
     const field = (id, label, ph, required, max) => new ActionRowBuilder().addComponents(
       new TextInputBuilder().setCustomId(id).setLabel(label).setStyle(TextInputStyle.Short).setPlaceholder(ph).setRequired(required).setMaxLength(max));
-    await i.showModal(new ModalBuilder().setCustomId("fc-link").setTitle("Vincular cuenta de SynapseBox").addComponents(
+    await i.showModal(new ModalBuilder().setCustomId("sb-link").setTitle("Vincular cuenta de SynapseBox").addComponents(
       field("u", "Nombre de usuario", "Tu usuario de SynapseBox", true, 32),
       field("p", "Contraseña", "Solo se comprueba, no se guarda", true, 128),
       field("c", "Código 2FA (solo si lo tienes activado)", "6 dígitos de tu app o un código de recuperación", false, 14)));
@@ -441,7 +441,7 @@ module.exports = function build(D) {
     if (sub === "mensaje") {
       const tIn = new TextInputBuilder().setCustomId("t").setLabel("Título (opcional)").setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(welcome.MAX_TITLE);
       if (cfg.title) tIn.setValue(cfg.title.slice(0, welcome.MAX_TITLE));
-      await i.showModal(new ModalBuilder().setCustomId("fc-welcome").setTitle("Mensaje de bienvenida").addComponents(
+      await i.showModal(new ModalBuilder().setCustomId("sb-welcome").setTitle("Mensaje de bienvenida").addComponents(
         new ActionRowBuilder().addComponents(tIn),
         new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("m").setLabel("Mensaje (usa {username}, {members}…)").setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(welcome.MAX_MSG).setValue(cfg.message.slice(0, welcome.MAX_MSG)))));
       return;

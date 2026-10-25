@@ -2,7 +2,8 @@
 //   HTTP: $httpGet $httpPost $httpPut $httpPatch $httpDelete $httpAddHeader $httpStatus $httpResult
 //   JSON: $jsonParse $json $jsonSet $jsonSetString $jsonUnset $jsonClear $jsonExists $jsonStringify $jsonPretty
 //         $jsonArray $jsonArrayAppend $jsonArrayUnshift $jsonArrayPop $jsonArrayShift $jsonArrayCount $jsonArrayIndex
-//         $jsonArrayReverse $jsonArraySort $jsonJoinArray
+//         $jsonArrayReverse $jsonArraySort $jsonJoinArray $jsonObjectCount $jsonLength $jsonKeys $jsonType
+//         $jsonArrayUnique $jsonArrayRemove $jsonArraySum
 // Seguridad: solo http/https, nunca hacia redes internas (localhost, 10.x, 192.168.x, 169.254.x…; se comprueba la dirección
 // ya resuelta en el momento de conectar), máximo 5 peticiones por ejecución, 8 s por petición, respuesta de hasta 1 MB y
 // 3 redirecciones. Los datos JSON viven solo durante la ejecución del comando.
@@ -176,7 +177,21 @@ module.exports = function install(F, { S, N, act }) {
   F(CJ, "jsonArrayUnshift", "clave;…;valor", "Añade un valor al principio de la lista.", (c, a) => { const l = target(c, keyList(a.slice(0, -1)), "$jsonArrayUnshift"); l.unshift(parseLoose(S(a[a.length - 1]))); limit(c); return ""; }, { min: 2, q: true });
   F(CJ, "jsonArrayPop", "clave;…", "Quita y devuelve el último elemento de la lista.", (c, a) => show(target(c, keyList(a).filter(x => x !== ""), "$jsonArrayPop").pop()));
   F(CJ, "jsonArrayShift", "clave;…", "Quita y devuelve el primer elemento de la lista.", (c, a) => show(target(c, keyList(a).filter(x => x !== ""), "$jsonArrayShift").shift()));
-  F(CJ, "jsonArrayCount", "clave;…", "Cuántos elementos tiene la lista.", (c, a) => target(c, keyList(a).filter(x => x !== ""), "$jsonArrayCount").length);
+  // Cuenta listas dentro de un valor (recursivo, con tope de recorrido para no colgar el bot)
+  const countKind = (root, pred) => { let n = 0, seen = 0; const go = v => { if (++seen > 20000 || !isObj(v)) return; if (pred(v)) n++; for (const x of Array.isArray(v) ? v : Object.values(v)) go(x); }; go(root); return n; };
+  F(CJ, "jsonArrayCount", "[clave;…]", "Sin claves: cuántas listas ([ ]) hay en todo el JSON cargado con $jsonParse (cuenta también las anidadas). Con claves: cuántos elementos tiene esa lista.", (c, a) => {
+    const keys = keyList(a).filter(x => x !== ""); if (!keys.length) return countKind(c.json, Array.isArray);
+    return target(c, keys, "$jsonArrayCount").length;
+  });
+  F(CJ, "jsonObjectCount", "[clave;…]", "Cuántos objetos ({ }) hay dentro del JSON (o de esa clave), contando los anidados.", (c, a) => { const keys = keyList(a).filter(x => x !== ""); check(keys); return countKind(keys.length ? walk(c.json, keys) : c.json, v => !Array.isArray(v)); });
+  F(CJ, "jsonLength", "[clave;…]", "Tamaño de un valor: elementos de una lista, claves de un objeto o caracteres de un texto.", (c, a) => { const keys = keyList(a).filter(x => x !== ""); check(keys); const v = keys.length ? walk(c.json, keys) : c.json; return Array.isArray(v) ? v.length : isObj(v) ? Object.keys(v).length : typeof v === "string" ? v.length : 0; });
+  F(CJ, "jsonKeys", "[clave;…]", "Las claves de un objeto, separadas por coma (en una lista, sus posiciones).", (c, a) => { const keys = keyList(a).filter(x => x !== ""); check(keys); const v = keys.length ? walk(c.json, keys) : c.json; return Array.isArray(v) ? v.map((_, i) => i).join(", ") : isObj(v) ? Object.keys(v).join(", ") : ""; });
+  F(CJ, "jsonType", "[clave;…]", "Tipo de un valor: objeto, lista, texto, numero, booleano, nulo o vacío si no existe.", (c, a) => { const keys = keyList(a).filter(x => x !== ""); check(keys); const v = keys.length ? walk(c.json, keys) : c.json; return v === undefined ? "" : v === null ? "nulo" : Array.isArray(v) ? "lista" : typeof v === "object" ? "objeto" : typeof v === "string" ? "texto" : typeof v === "number" ? "numero" : "booleano"; });
+  F(CJ, "jsonArrayUnique", "clave;…", "Quita los elementos repetidos de la lista (deja el primero de cada uno).", (c, a) => { const l = target(c, keyList(a).filter(x => x !== ""), "$jsonArrayUnique"), seen = new Set(), out = l.filter(x => { const k = JSON.stringify(x); return seen.has(k) ? false : (seen.add(k), true); }); l.splice(0, l.length, ...out); return ""; }, { q: true });
+  F(CJ, "jsonArrayRemove", "clave;…;valor", "Quita de la lista todos los elementos iguales al valor. Devuelve cuántos quitó.", (c, a) => {
+    const l = target(c, keyList(a.slice(0, -1)).filter(x => x !== ""), "$jsonArrayRemove"), v = S(a[a.length - 1]), keep = l.filter(x => !(show(x) === v || JSON.stringify(x) === v)), n = l.length - keep.length; l.splice(0, l.length, ...keep); return n;
+  }, { min: 2 });
+  F(CJ, "jsonArraySum", "clave;…", "Suma los números de la lista (ignora lo que no sea número).", (c, a) => +target(c, keyList(a).filter(x => x !== ""), "$jsonArraySum").reduce((s, x) => s + (typeof x === "number" ? x : isNaN(parseFloat(x)) || !isFinite(x) ? 0 : +x), 0).toFixed(6));
   F(CJ, "jsonArrayIndex", "clave;…;valor", "Posición (desde 0) de un valor en la lista, o -1 si no está.", (c, a) => {
     const l = target(c, keyList(a.slice(0, -1)).filter(x => x !== ""), "$jsonArrayIndex"), v = S(a[a.length - 1]);
     return l.findIndex(x => show(x) === v || JSON.stringify(x) === v);

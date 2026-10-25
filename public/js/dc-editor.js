@@ -1,6 +1,6 @@
 // Editor de comandos propios de Discord (SBScript): explorador de carpetas, propiedades, editor con resaltado, funciones, problemas y pruebas.
 (()=>{
-const S={list:{folders:[],commands:[],limits:{},types:[],access:[],match:[],bot:{}},docs:[],fn:new Set(),blk:new Set(),cur:null,dirty:false,open:new Set(['']),q:'',errs:[],tab:'prob',pmin:false,fnOpen:false,prevT:'slash'};
+const S={list:{folders:[],commands:[],limits:{},types:[],access:[],match:[],bot:{}},docs:[],fn:new Set(),blk:new Set(),cur:null,dirty:false,open:new Set(['']),q:'',errs:[],tab:'prob',pmin:false,fnOpen:false,prevT:'slash',propsClosed:innerWidth<=900};
 const side=$('#side'),work=$('#work'),scrim=$('#scrim');
 const TT={slash:['/','','Slash'],prefijo:['!','p','Prefijo'],mensaje:['msg','m','Mensaje'],boton:['btn','b','Botón']};
 const TPL={slash:'$title[¡Hola $nickname!]\n$description[Escribiste: $option[texto]]\n$color[#4f8cff]',prefijo:'Hola $nickname, usaste $prefix$commandName\n',mensaje:'¡Hola $mention!',boton:'$updateMessage\n$title[¡Botón pulsado!]\n$description[$mention pulsó «$buttonId».]\n$clearButtons'};
@@ -71,7 +71,7 @@ function editor(){const c=S.cur;if(!c)return emptyView();
   const sel=(id,arr,v,lab)=>`<select id="${id}">${arr.map(x=>`<option value="${x}" ${x===v?'selected':''}>${lab?.[x]||x}</option>`).join('')}</select>`;
   work.innerHTML=`<div class="dc-tabbar"><button class="btn ghost sm dc-onlym" id="mside">${ic('menu')}</button>
     <div class="dc-tab"><span class="dc-tg ${TT[m.tipo][1]}">${TT[m.tipo][0]}</span><span id="ttl">${esc(c.name)}</span><small class="muted">${c.id?esc(c.folder||'raíz'):'nuevo'}</small><i class="dc-dot" id="dty" title="Sin guardar"></i></div><span class="dc-grow"></span>
-    <button class="btn" id="sv">${ic('check')} Guardar</button><button class="btn ghost sm" id="tst">${ic('send')} Probar</button><button class="btn ghost sm" id="rf">${ic('code')} Funciones</button><a class="btn ghost sm" href="/admin/discord-wiki.html" target="_blank" rel="noopener">${ic('info')} Wiki</a>${c.id?`<button class="btn ghost sm dng" id="del">${ic('trash')} Borrar</button>`:''}</div>
+    <button class="btn" id="sv" title="Guardar (Ctrl+S)">${ic('check')} Guardar</button><button class="btn ghost sm" id="tst" title="Probar (Ctrl+Enter)">${ic('send')}<span class="dc-bl">Probar</span></button><button class="btn ghost sm" id="rf">${ic('code')}<span class="dc-bl">Funciones</span></button><a class="btn ghost sm" href="/admin/discord-wiki.html" target="_blank" rel="noopener">${ic('info')}<span class="dc-bl">Wiki</span></a>${c.id?`<button class="btn ghost sm dng" id="del">${ic('trash')}<span class="dc-bl">Borrar</span></button>`:''}</div>
   <details class="dc-props" ${S.propsClosed?'':'open'}><summary>Propiedades del comando</summary><div class="dc-pb"><div class="dc-form"><label>Nombre<input id="fname" maxlength="32" value="${esc(c.name)}"></label><label>Carpeta<select id="ffo">${fo}</select></label>
   <label>Tipo${sel('ftipo',['slash','prefijo','mensaje','boton'],m.tipo,{slash:'Slash (/comando)',prefijo:'Prefijo (!comando)',mensaje:'Mensaje',boton:'Botón (al pulsarlo)'})}</label>
   <label>Quién puede usarlo${sel('facc',S.list.access,m.acceso,{todos:'Todos',vinculados:'Cuentas vinculadas',admin:'Admins de SynapseBox',gestores:'Admins y gestores del servidor'})}</label><label class="dc-ck"><input type="checkbox" id="fact" ${m.activo?'checked':''}> Comando activo</label>
@@ -79,8 +79,8 @@ function editor(){const c=S.cur;if(!c)return emptyView();
   ${m.tipo==='prefijo'?`<label class="dc-w">Otros nombres (separados por comas)<input id="fal" value="${esc(m.alias.join(', '))}" placeholder="hola, hi"></label>`:''}
   ${m.tipo==='boton'?`<label class="dc-w">Id del botón que lo activa (el que pones en $addButton)<input id="fdi" maxlength="80" value="${esc(m.disparador)}" placeholder="mi-boton"></label><label>Coincidencia${sel('fco',['exacta','empieza'],m.coincidencia==='contiene'?'exacta':m.coincidencia,{exacta:'El id es exactamente ese',empieza:'El id empieza así (ej. rol: para rol:123)'})}</label>`:''}${m.tipo==='mensaje'?`<label class="dc-w">Texto que lo activa<input id="fdi" maxlength="100" value="${esc(m.disparador)}"></label><label>Coincidencia${sel('fco',S.list.match,m.coincidencia,{exacta:'El mensaje es exactamente eso',contiene:'El mensaje contiene eso',empieza:'El mensaje empieza así'})}</label>`:''}</div>
   ${m.tipo==='slash'?`<div class="dc-opts" id="opts">${m.opciones.map((o,i)=>`<div class="dc-opt"><input data-k="name" value="${esc(o.name)}" placeholder="nombre" maxlength="32"><select data-k="type">${S.list.types.map(t=>`<option ${t===o.type?'selected':''}>${t}</option>`).join('')}</select><select data-k="required"><option value="0">Opcional</option><option value="1" ${o.required?'selected':''}>Obligatoria</option></select><input data-k="desc" value="${esc(o.desc)}" placeholder="descripción" maxlength="100"><button class="dc-ib dc-dng" data-rm="${i}" title="Quitar">${ic('x')}</button></div>`).join('')}</div><button class="btn ghost sm" id="ao" style="margin-top:8px" ${m.opciones.length>=25?'disabled':''}>${ic('plus')} Añadir opción</button>`:''}</div></details>
-  <div class="dc-split"><div class="dc-edwrap"><div class="dc-ed"><div class="dc-gut" id="gut"></div><div class="dc-box"><pre id="hl" aria-hidden="true"></pre><textarea id="code" spellcheck="false" wrap="off" autocapitalize="off" autocomplete="off" aria-label="Código del comando"></textarea><div class="dc-ac" id="ac"></div></div></div><div class="dc-status"><span id="pos">Ln 1, Col 1</span><span id="cnt"></span><span class="dc-grow"></span><span>SBScript</span><span>Ctrl+S guarda</span></div></div>
-    <aside class="dc-fnp" id="ref" ${S.fnOpen?'':'hidden'}><div class="dc-fh" style="display:flex;gap:6px;align-items:center"><input type="search" id="rq" placeholder="Buscar función…"><button class="dc-ib" id="rclose" title="Cerrar (Esc)">${ic('x')}</button></div><div class="dc-fl" id="rl"></div></aside></div>
+  <div class="dc-split"><div class="dc-edwrap"><div class="dc-ed"><div class="dc-gut" id="gut"></div><div class="dc-box"><div class="dc-cl" id="cl"></div><pre id="hl" aria-hidden="true"></pre><textarea id="code" spellcheck="false" wrap="off" autocapitalize="off" autocomplete="off" aria-label="Código del comando"></textarea><div class="dc-ac" id="ac"></div></div></div><div class="dc-status"><span id="pos">Ln 1, Col 1</span><span id="cnt"></span><span class="dc-grow"></span><span>SBScript</span><span>Ctrl+S guarda</span></div></div>
+    <aside class="dc-fnp" id="ref" ${S.fnOpen?'':'hidden'}><div class="dc-fh" style="display:flex;gap:6px;align-items:center"><input type="search" id="rq" placeholder="Buscar función…"><button class="dc-ib" id="rclose" title="Cerrar (Esc)">${ic('x')}</button></div><div class="dc-fnl" id="rl"></div></aside></div>
   <div class="dc-panel ${S.pmin?'dc-min':''}" id="pn"><div class="dc-pt"><button data-pt="prob">Problemas<span class="dc-cnt" id="pc" hidden></span></button><button data-pt="test">Prueba</button><span class="dc-grow"></span><button id="pmin" title="Mostrar u ocultar">${S.pmin?'▲':'▼'}</button></div><div class="dc-pc" id="pcont"></div></div>`;
   $('#code').value=c.code;paint();wireForm();panel();if(S.fnOpen)refList('');checkSoon(0);showDirty()}
 function readForm(){const c=S.cur,m=c.meta;c.name=slug($('#fname').value);c.folder=$('#ffo').value;m.acceso=$('#facc').value;m.activo=$('#fact').checked;
@@ -98,7 +98,7 @@ function wireForm(){const c=S.cur;
   const dl=$('#del');if(dl)dl.onclick=()=>delCmd(c.id);
   const ao=$('#ao');if(ao)ao.onclick=()=>{readForm();c.meta.opciones.push({name:'texto',type:'string',required:false,desc:'Opción'});mark();editor()};
   $$('[data-rm]').forEach(b=>b.onclick=()=>{readForm();c.meta.opciones.splice(+b.dataset.rm,1);mark();editor()});
-  $('#rq').oninput=e=>refList(e.target.value);wireCode();
+  $('#rq').oninput=e=>refList(e.target.value);wireCode();symBar();
   $$('[data-pt]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.pt;S.pmin=false;panel()});$('#pmin').onclick=()=>{S.pmin=!S.pmin;panel()}}
 async function save(){try{readForm();const c=S.cur;if(!c.name)throw Error('Escribe un nombre');const r=await api('/api/admin/discord/cmds/save',{id:c.id,folder:c.folder,name:c.name,meta:c.meta,code:c.code});
   c.id=r.id;S.dirty=false;S.errs=r.errors;if(c.folder)S.open.add(c.folder);toast(r.errors.length?'Guardado, pero con errores en el código':'Comando guardado');await load(true);editor()}catch(x){toast(x.message,1)}}
@@ -110,7 +110,7 @@ function panel(){const p=$('#pn');if(!p)return;p.classList.toggle('dc-min',S.pmi
 function showErrs(){const e=$('#pcont');if(!e||S.tab!=='prob')return;const pc=$('#pc');if(pc){pc.hidden=!S.errs.length;pc.textContent=S.errs.length}
   e.innerHTML=S.errs.length?`<div class="dc-errs">${S.errs.map((x,i)=>`<button data-go="${i}">Línea ${x.line}, col. ${x.col}: ${esc(x.msg)}</button>`).join('')}</div>`:'<span class="dc-ok">✓ Sin errores de sintaxis.</span>'}
 $('#work').addEventListener('click',e=>{const b=e.target.closest('[data-go]');if(b)go(+b.dataset.go)});
-function go(i){const x=S.errs[i],ta=$('#code'),ls=ta.value.split('\n');let p=0;for(let k=0;k<x.line-1;k++)p+=ls[k].length+1;ta.focus();ta.setSelectionRange(p+x.col-1,p+x.col-1);ta.scrollTop=Math.max(0,(x.line-4)*21)}
+function go(i){const x=S.errs[i],ta=$('#code'),ls=ta.value.split('\n');let p=0;for(let k=0;k<x.line-1;k++)p+=ls[k].length+1;ta.focus();ta.setSelectionRange(p+x.col-1,p+x.col-1);ta.scrollTop=Math.max(0,(x.line-4)*LH())}
 
 // ---------------- resaltado ----------------
 const RE=/(^[ \t]*\/\/[^\n]*)|(\\[\\$;\[\]])|(\$[A-Za-z_]\w*)|(\[)|(\])|(;)|(\d+(?:\.\d+)?)|([^$\\\[\];\d\/\n]+|[\s\S])/gm;
@@ -122,33 +122,52 @@ function hl(src){let d=0,o='';RE.lastIndex=0;let m;
     else if(m[6])o+='<span class="dc-s">;</span>';else if(m[7])o+=`<span class="dc-n">${t}</span>`;else o+=esc(t)}
   return o+'\n '}
 let raf=0;function paint(){const ta=$('#code');if(!ta)return;$('#hl').innerHTML=hl(ta.value);gutter();status()}
-function gutter(){const ta=$('#code'),n=ta.value.split('\n').length,bad=new Set(S.errs.map(e=>e.line));$('#gut').innerHTML=Array.from({length:n},(_,i)=>bad.has(i+1)?`<span class="dc-gl">${i+1}</span>`:i+1).join('\n');syncScroll()}
+function gutter(){const ta=$('#code'),n=ta.value.split('\n').length,bad=new Set(S.errs.map(e=>e.line)),cur=lineNo(ta);lastCur=cur;$('#gut').innerHTML=Array.from({length:n},(_,i)=>bad.has(i+1)?`<span class="dc-gl">${i+1}</span>`:i+1===cur?`<span class="dc-gc">${i+1}</span>`:i+1).join('\n');syncScroll()}
 function syncScroll(){const ta=$('#code');if(!ta)return;$('#hl').scrollTop=ta.scrollTop;$('#hl').scrollLeft=ta.scrollLeft;$('#gut').scrollTop=ta.scrollTop}
-function status(){const ta=$('#code');if(!ta)return;const b=ta.value.slice(0,ta.selectionStart).split('\n');$('#pos').textContent=`Ln ${b.length}, Col ${b.at(-1).length+1}`;$('#cnt').textContent=`${ta.value.split('\n').length} líneas · ${ta.value.length}/${S.list.limits.code||20000} caracteres`}
+function status(){const ta=$('#code');if(!ta)return;curLine();const b=ta.value.slice(0,ta.selectionStart).split('\n');$('#pos').textContent=`Ln ${b.length}, Col ${b.at(-1).length+1}`;$('#cnt').textContent=`${ta.value.split('\n').length} líneas · ${ta.value.length}/${S.list.limits.code||20000} caracteres`}
 let ct=0;function checkSoon(ms=600){clearTimeout(ct);ct=setTimeout(async()=>{if(!S.cur||!$('#code'))return;try{readForm();S.errs=(await api('/api/admin/discord/cmds/check',{code:S.cur.code,meta:S.cur.meta})).errors;showErrs();gutter()}catch{}},ms)}
 
 // ---------------- teclado y autocompletado ----------------
 const acEl=()=>$('#ac');let acList=[],acI=0,acFrom=0;
 const SNIP={if:['$if[]\n  \n$endif',4],for:['$for[i;1;5]\n  \n$endfor',5],while:['$while[]\n  \n$endwhile',7]};
+const LH=()=>{const t=$('#code');return t?parseFloat(getComputedStyle(t).lineHeight)||21:21};
+const lineNo=ta=>ta.value.slice(0,ta.selectionStart).split('\n').length;let lastCur=0;
+function curLine(){const ta=$('#code'),cl=$('#cl');if(!ta||!cl)return;const n=lineNo(ta),lh=LH(),pad=parseFloat(getComputedStyle(ta).paddingTop)||12;
+  cl.style.height=lh+'px';cl.style.transform='translateY('+(pad+(n-1)*lh-ta.scrollTop)+'px)';cl.style.display=document.activeElement===ta&&ta.selectionStart===ta.selectionEnd?'block':'none';
+  if(n!==lastCur)gutter()}
+const lineBounds=(v,s,e)=>{const a=v.lastIndexOf('\n',s-1)+1;let b=v.indexOf('\n',e>s&&v[e-1]==='\n'?e-1:e);if(b<0)b=v.length;return[a,b]};
+function tabKey(e,ta){e.preventDefault();const s=ta.selectionStart,en=ta.selectionEnd;if(s===en&&!e.shiftKey)return insert(ta,'  ');
+  const[a,b]=lineBounds(ta.value,s,en),old=ta.value.slice(a,b),out=old.split('\n').map(l=>e.shiftKey?l.replace(/^ {1,2}|^\t/,''):'  '+l).join('\n');
+  ta.setRangeText(out,a,b,'select');if(s===en){const p=Math.max(a,s-(old.length-out.length));ta.setSelectionRange(p,p)}else ta.setSelectionRange(a,a+out.length);input()}
+function enterKey(e,ta){const v=ta.value,s=ta.selectionStart;if(s!==ta.selectionEnd)return false;
+  const line=v.slice(v.lastIndexOf('\n',s-1)+1,s),ind=/^[ \t]*/.exec(line)[0],opens=/^\s*\$(if|elseif|else|for|while)\b/i.test(line)&&!/\$end(if|for|while)\b/i.test(line);
+  if(!ind&&!opens)return false;e.preventDefault();insert(ta,'\n'+ind+(opens?'  ':''));return true}
+function toggleComment(ta){const[a,b]=lineBounds(ta.value,ta.selectionStart,ta.selectionEnd),ls=ta.value.slice(a,b).split('\n'),all=ls.every(l=>!l.trim()||/^\s*\/\//.test(l));
+  const out=ls.map(l=>!l.trim()?l:all?l.replace(/^(\s*)\/\/ ?/,'$1'):l.replace(/^(\s*)/,'$1// ')).join('\n');ta.setRangeText(out,a,b,'select');input()}
+function runNow(){S.tab='test';S.pmin=false;panel();$('#run')?.click()}
+function symBar(){const w=$('.dc-edwrap');if(!w||$('#sym'))return;const d=document.createElement('div');d.className='dc-sym';d.id='sym';
+  d.innerHTML=['$','[',']',';','\\','{','}','"','(',')','Tab'].map(s=>'<button type="button" data-s="'+esc(s)+'">'+esc(s)+'</button>').join('');w.insertBefore(d,$('.dc-status'));
+  d.addEventListener('pointerdown',e=>e.preventDefault());d.addEventListener('mousedown',e=>e.preventDefault());
+  d.addEventListener('click',e=>{const b=e.target.closest('[data-s]');if(!b)return;const ta=$('#code');ta.focus();const s=b.dataset.s;if(s==='Tab')return insert(ta,'  ');if(s==='[')return insert(ta,'[]',1);insert(ta,s)})}
 function insert(ta,text,caret){const s=ta.selectionStart,e=ta.selectionEnd;ta.setRangeText(text,s,e,'end');if(caret!=null)ta.setSelectionRange(s+caret,s+caret);input()}
 function acClose(){const a=acEl();if(a)a.style.display='none';acList=[]}
 function acOpen(){const ta=$('#code'),pos=ta.selectionStart,m=/\$([A-Za-z_]\w*)$/.exec(ta.value.slice(0,pos));if(!m)return acClose();
   const q=m[1].toLowerCase();acFrom=pos-m[0].length;acList=S.docs.filter(d=>d.n.toLowerCase().startsWith(q)&&d.n.toLowerCase()!==q).slice(0,12);if(!acList.length)return acClose();acI=0;
   const ls=ta.value.slice(0,pos).split('\n'),a=acEl();a.style.display='block';
-  a.style.top=Math.min(ta.clientHeight-30,ls.length*21+12-ta.scrollTop)+'px';a.style.left=Math.min(Math.max(0,ta.clientWidth-280),14+ls.at(-1).length*charW()-ta.scrollLeft)+'px';acDraw()}
+  acDraw();const lh=LH(),cy=ls.length*lh+lh/2-ta.scrollTop,ph=Math.min(a.offsetHeight,220);a.style.top=Math.max(4,cy+ph>ta.clientHeight-4?cy-lh-ph:cy)+'px';a.style.left=Math.min(Math.max(0,ta.clientWidth-280),14+ls.at(-1).length*charW()-ta.scrollLeft)+'px';acDraw()}
 function acDraw(){acEl().innerHTML=acList.map((d,i)=>`<div class="${i===acI?'dc-sel':''}" data-i="${i}"><b>$${esc(d.n)}${d.a?`[${esc(d.a)}]`:''}</b><small>${esc(d.d)}</small></div>`).join('')}
 function acPick(i){const d=acList[i],ta=$('#code');if(!d)return;ta.setSelectionRange(acFrom,ta.selectionStart);const k=d.n.toLowerCase();acClose();
   if(SNIP[k])return insert(ta,...SNIP[k]);const t='$'+d.n+(d.a&&!d.a.startsWith('[')?'[]':'');insert(ta,t,t.endsWith(']')?t.length-1:t.length)}
-let cwv=0;const charW=()=>cwv||(cwv=(()=>{const c=document.createElement('canvas').getContext('2d');c.font='13.5px ui-monospace,Menlo,Consolas,monospace';return c.measureText('MMMMMMMMMM').width/10})());
+let cwv=0;const charW=()=>cwv||(cwv=(()=>{const c=document.createElement('canvas').getContext('2d');const cs=getComputedStyle($('#code'));c.font=cs.fontSize+' '+cs.fontFamily;return c.measureText('MMMMMMMMMM').width/10})());
 function input(){cancelAnimationFrame(raf);raf=requestAnimationFrame(()=>{paint();acOpen()});mark();checkSoon()}
 function wireCode(){const ta=$('#code');
-  ta.addEventListener('input',input);ta.addEventListener('scroll',()=>{syncScroll();acClose()});ta.addEventListener('blur',()=>setTimeout(acClose,150));['keyup','click'].forEach(v=>ta.addEventListener(v,status));
+  ta.addEventListener('input',input);ta.addEventListener('scroll',()=>{syncScroll();curLine();acClose()});ta.addEventListener('blur',()=>setTimeout(acClose,150));['keyup','click'].forEach(v=>ta.addEventListener(v,status));['focus','blur'].forEach(v=>ta.addEventListener(v,curLine));
   ta.addEventListener('keydown',e=>{const open=acEl().style.display==='block';
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();return save()}
     if(open){if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();acI=(acI+(e.key==='ArrowDown'?1:-1)+acList.length)%acList.length;return acDraw()}if(e.key==='Enter'||e.key==='Tab'){e.preventDefault();return acPick(acI)}if(e.key==='Escape')return acClose()}
-    if(e.key==='Tab'){e.preventDefault();return insert(ta,'  ')}
-    if(e.key==='['&&!e.ctrlKey&&!e.metaKey){e.preventDefault();return insert(ta,'[]',1)}
-    if(e.key===']'&&ta.value[ta.selectionStart]===']'&&ta.selectionStart===ta.selectionEnd){e.preventDefault();return ta.setSelectionRange(ta.selectionStart+1,ta.selectionStart+1)}
+    if(e.key==='Tab')return tabKey(e,ta);if(e.key==='Enter'&&!e.ctrlKey&&!e.metaKey&&!e.shiftKey&&!e.altKey&&enterKey(e,ta))return;if((e.ctrlKey||e.metaKey)&&e.key==='/'){e.preventDefault();return toggleComment(ta)}if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();return runNow()}
+    if(e.key==='['&&!e.ctrlKey&&!e.metaKey&&ta.value[ta.selectionStart-1]!=='\\'){e.preventDefault();return insert(ta,'[]',1)}
+    if(e.key===']'&&ta.value[ta.selectionStart]===']'&&ta.value[ta.selectionStart-1]!=='\\'&&ta.selectionStart===ta.selectionEnd){e.preventDefault();return ta.setSelectionRange(ta.selectionStart+1,ta.selectionStart+1)}
     if(e.key==='Backspace'&&ta.selectionStart===ta.selectionEnd&&ta.value.slice(ta.selectionStart-1,ta.selectionStart+1)==='[]'){e.preventDefault();ta.setRangeText('',ta.selectionStart-1,ta.selectionStart+1,'end');return input()}});
   acEl().addEventListener('mousedown',e=>{const d=e.target.closest('[data-i]');if(d){e.preventDefault();acPick(+d.dataset.i)}})}
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'&&S.cur&&document.activeElement?.id!=='code'){e.preventDefault();save()}});
