@@ -259,7 +259,7 @@ F(C5, "average", "a;b;…", "Promedio de varios números.", (c, a) => +(a.reduce
 F(C5, "dice", "[dados];[caras]", "Tira dados (1 por defecto, de 6 caras; máx. 20 dados y 1000 caras). Ej.: $dice[2;6] → «🎲 4 + 2 = 6».", (c, a) => { const n = Math.min(20, Math.max(1, Math.floor(N(a[0], 1)))), f = Math.min(1000, Math.max(2, Math.floor(N(a[1], 6)))); const r = Array.from({ length: n }, () => 1 + Math.floor(Math.random() * f)); return n === 1 ? `🎲 ${r[0]}` : `🎲 ${r.join(" + ")} = ${r.reduce((x, y) => x + y, 0)}`; });
 F(C6, "isPalindrome", "texto", "true si el texto se lee igual al derecho y al revés (ignora mayúsculas, acentos y símbolos).", (c, a) => { const t = S(a[0]).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9ñ]/g, ""); return t.length > 0 && t === [...t].reverse().join(""); }, { min: 1 });
 F(C6, "initials", "texto;[máx]", "Iniciales de cada palabra en mayúsculas (máx. 10). Ej.: «juan pérez» → JP.", (c, a) => S(a[0]).split(/\s+/).filter(Boolean).map(w => [...w][0].toUpperCase()).join("").slice(0, Math.min(10, Math.max(1, N(a[1], 10)))), { min: 1 });
-// =================== Novedades 2.15.2: más texto y matemáticas ===================
+// =================== Novedades 2.15.3: más texto y matemáticas ===================
 const noAcc = s => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 F(C6, "removeAccents", "texto", "Quita las tildes y diéresis (á → a, ñ → n).", (c, a) => noAcc(S(a[0])), { min: 1 });
 F(C6, "between", "texto;inicio;fin", "Lo que hay entre dos textos. Ej.: $between[a(hola)b;(;)] → hola.", (c, a) => { const t = S(a[0]), i = t.indexOf(S(a[1])); if (i < 0) return ""; const s = i + S(a[1]).length, j = S(a[2]) ? t.indexOf(S(a[2]), s) : -1; return j < 0 ? "" : t.slice(s, j); }, { min: 3 });
@@ -276,8 +276,44 @@ F(C5, "mod", "a;b", "Resto de dividir a entre b.", (c, a) => { if (!N(a[1])) thr
 F(C5, "isNumber", "texto", "true si el texto es un número válido.", (c, a) => S(a[0]).trim() !== "" && !isNaN(R.num(S(a[0]).trim())), { min: 1 });
 F(C5, "range", "desde;hasta;[paso]", "Lista de números separados por coma (máx. 100). Ej.: $range[1;5] → 1, 2, 3, 4, 5.", (c, a) => { const d = N(a[0]), h = N(a[1]), p = Math.abs(N(a[2], 1)) || 1, o = []; if (d <= h) for (let x = d; x <= h && o.length < 100; x += p) o.push(+x.toFixed(10)); else for (let x = d; x >= h && o.length < 100; x -= p) o.push(+x.toFixed(10)); return o.join(", "); }, { min: 2 });
 F(C5, "lerp", "desde;hasta;t", "Valor entre dos números según t (0 a 1). Ej.: $lerp[0;100;0.25] → 25.", (c, a) => +(N(a[0]) + (N(a[1]) - N(a[0])) * N(a[2])).toFixed(10), { min: 3 });
+// ---- más funciones 2.15.3 ----
+const gcd2 = (a, b) => { a = Math.abs(Math.round(a)); b = Math.abs(Math.round(b)); while (b) [a, b] = [b, a % b]; return a; };
+const nums = a => a.map(x => N(x));
+F(C5, "gcd", "a;b;…", "Máximo común divisor de varios números enteros.", (c, a) => nums(a).reduce(gcd2), { min: 2 });
+F(C5, "lcm", "a;b;…", "Mínimo común múltiplo de varios números enteros.", (c, a) => { const r = nums(a).reduce((x, y) => { const g = gcd2(x, y); return g ? Math.abs(Math.round(x) * Math.round(y)) / g : 0; }); if (!isFinite(r) || r > 9e15) throw Error("el resultado es demasiado grande"); return r; }, { min: 2 });
+F(C5, "factorial", "n", "Factorial de un número (0 a 20).", (c, a) => { const n = Math.round(N(a[0])); if (n < 0 || n > 20) throw Error("el número debe estar entre 0 y 20"); let r = 1; for (let i = 2; i <= n; i++) r *= i; return r; }, { min: 1 });
+F(C5, "isPrime", "n", "true si el número es primo.", (c, a) => { const n = Math.round(N(a[0])); if (n < 2 || n > 9e15) return false; if (n < 4) return true; if (n % 2 === 0) return false; for (let i = 3; i * i <= n; i += 2) if (n % i === 0) return false; return true; }, { min: 1 });
+F(C5, "fibonacci", "n", "El número n de la sucesión de Fibonacci (0 a 78).", (c, a) => { const n = Math.round(N(a[0])); if (n < 0 || n > 78) throw Error("n debe estar entre 0 y 78"); let x = 0, y = 1; for (let i = 0; i < n; i++) [x, y] = [y, x + y]; return x; }, { min: 1 });
+F(C5, "log", "número;[base]", "Logaritmo (natural por defecto; indica la base, p. ej. 10 o 2).", (c, a) => { const x = N(a[0]), b = a[1] === undefined || a[1] === "" ? Math.E : N(a[1]); if (x <= 0 || b <= 0 || b === 1) throw Error("valores no válidos para el logaritmo"); return +(Math.log(x) / Math.log(b)).toFixed(10); }, { min: 1 });
+F(C5, "sign", "número", "-1 si es negativo, 1 si es positivo, 0 si es cero.", (c, a) => Math.sign(N(a[0])), { min: 1 });
+F(C5, "trunc", "número", "Quita los decimales (sin redondear).", (c, a) => Math.trunc(N(a[0])), { min: 1 });
+F(C5, "randomFloat", "[mínimo];[máximo];[decimales]", "Número decimal al azar (de 0 a 1 por defecto; hasta 10 decimales, 2 por defecto).", (c, a) => { const lo = N(a[0], 0), hi = N(a[1], 1); if (hi < lo) throw Error("el máximo debe ser mayor que el mínimo"); return +(lo + crypto.randomInt(0, 1e9) / 1e9 * (hi - lo)).toFixed(Math.min(10, Math.max(0, N(a[2], 2)))); });
+F(C5, "stdDev", "a;b;…", "Desviación estándar (poblacional) de varios números.", (c, a) => { const v = nums(a), m = v.reduce((s, x) => s + x, 0) / v.length; return +Math.sqrt(v.reduce((s, x) => s + (x - m) ** 2, 0) / v.length).toFixed(6); }, { min: 1 });
+F(C5, "toBase", "número;base", "Convierte un entero a otra base (2 a 36). Ej.: $toBase[255;16] → ff.", (c, a) => { const b = Math.round(N(a[1])); if (b < 2 || b > 36) throw Error("la base debe estar entre 2 y 36"); return Math.trunc(N(a[0])).toString(b); }, { min: 2 });
+F(C5, "fromBase", "texto;base", "Convierte un texto de otra base (2 a 36) a número decimal. Ej.: $fromBase[ff;16] → 255.", (c, a) => { const b = Math.round(N(a[1])); if (b < 2 || b > 36) throw Error("la base debe estar entre 2 y 36"); const r = parseInt(S(a[0]).trim(), b); return isNaN(r) ? 0 : r; }, { min: 2 });
+F(C5, "roman", "número", "Número romano (1 a 3999). Ej.: $roman[2026] → MMXXVI.", (c, a) => { let n = Math.round(N(a[0])); if (n < 1 || n > 3999) throw Error("el número debe estar entre 1 y 3999"); let r = ""; for (const [v, s] of [[1000, "M"], [900, "CM"], [500, "D"], [400, "CD"], [100, "C"], [90, "XC"], [50, "L"], [40, "XL"], [10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"]]) while (n >= v) { r += s; n -= v; } return r; }, { min: 1 });
+F(C5, "ordinal", "número", "Número con ordinal en español. Ej.: $ordinal[3] → 3.º", (c, a) => Math.round(N(a[0])) + ".º", { min: 1 });
+F(C5, "bytes", "número", "Tamaño legible a partir de bytes. Ej.: $bytes[1536] → 1.5 KB.", (c, a) => fmtB(Math.max(0, N(a[0]))), { min: 1 });
+
+F(C6, "left", "texto;n", "Los primeros n caracteres.", (c, a) => [...S(a[0])].slice(0, Math.max(0, N(a[1]))).join(""), { min: 2 });
+F(C6, "right", "texto;n", "Los últimos n caracteres.", (c, a) => { const ch = [...S(a[0])], n = Math.max(0, N(a[1])); return n ? ch.slice(-n).join("") : ""; }, { min: 2 });
+F(C6, "lastIndexOf", "texto;buscar", "Posición (desde 0) de la última aparición, o -1.", (c, a) => S(a[0]).lastIndexOf(S(a[1])), { min: 2 });
+F(C6, "containsAny", "texto;a;b;…", "true si el texto contiene alguna de las palabras (sin distinguir mayúsculas).", (c, a) => { const t = S(a[0]).toLowerCase(); return a.slice(1).some(x => S(x) && t.includes(S(x).toLowerCase())); }, { min: 2 });
+F(C6, "containsAll", "texto;a;b;…", "true si el texto contiene todas las palabras (sin distinguir mayúsculas).", (c, a) => { const t = S(a[0]).toLowerCase(); return a.slice(1).every(x => t.includes(S(x).toLowerCase())); }, { min: 2 });
+F(C6, "equalsIgnoreCase", "a;b", "true si dos textos son iguales sin distinguir mayúsculas ni tildes.", (c, a) => noAcc(S(a[0])).toLowerCase() === noAcc(S(a[1])).toLowerCase(), { min: 2 });
+F(C6, "camelCase", "texto", "Convierte a camelCase. Ej.: «hola mundo» → holaMundo.", (c, a) => noAcc(S(a[0])).toLowerCase().replace(/[^a-z0-9]+(.)?/g, (m, ch) => ch ? ch.toUpperCase() : ""), { min: 1 });
+F(C6, "snakeCase", "texto", "Convierte a snake_case. Ej.: «Hola Mundo» → hola_mundo.", (c, a) => noAcc(S(a[0])).toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, ""), { min: 1 });
+F(C6, "reverseWords", "texto", "Invierte el orden de las palabras.", (c, a) => S(a[0]).split(/\s+/).filter(Boolean).reverse().join(" "), { min: 1 });
+F(C6, "escapeMarkdown", "texto", "Escapa los símbolos de Markdown de Discord (* _ ~ ` | > #) para mostrarlos tal cual.", (c, a) => S(a[0]).replace(/([\\*_~`|>#])/g, "\\$1"), { min: 1 });
+F(C6, "rot13", "texto", "Cifrado simple ROT13 (aplícalo dos veces para volver al original).", (c, a) => S(a[0]).replace(/[a-z]/gi, ch => { const b = ch <= "Z" ? 65 : 97; return String.fromCharCode((ch.charCodeAt(0) - b + 13) % 26 + b); }), { min: 1 });
+F(C6, "countLetters", "texto", "Cuenta solo las letras (sin números, espacios ni símbolos).", (c, a) => (S(a[0]).match(/\p{L}/gu) || []).length, { min: 1 });
+F(C6, "uuid", "", "Identificador único aleatorio (UUID).", () => crypto.randomUUID());
+
+
 // =================== Tiempo ===================
 const C7 = "Tiempo";
+F(C7, "isLeapYear", "[año]", "true si el año es bisiesto (el actual por defecto).", (c, a) => { const y = Math.round(N(a[0], new Date().getUTCFullYear())); return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0; });
+F(C7, "daysInMonth", "[mes];[año]", "Cuántos días tiene un mes (1 a 12; el actual por defecto).", (c, a) => { const d = new Date(); const m = Math.round(N(a[0], d.getUTCMonth() + 1)), y = Math.round(N(a[1], d.getUTCFullYear())); if (m < 1 || m > 12) throw Error("el mes debe estar entre 1 y 12"); return new Date(Date.UTC(y, m, 0)).getUTCDate(); });
 F(C7, "unix", "", "Segundos desde 1970 (ahora).", () => Math.floor(Date.now() / 1000));
 F(C7, "date", "[formato];[unix]", "Fecha y hora. Formato con YYYY MM DD HH mm ss (por defecto DD/MM/YYYY HH:mm).", (c, a) => dateFmt(S(a[0], "DD/MM/YYYY HH:mm"), a[1] ? new Date(N(a[1]) * 1000) : new Date()));
 F(C7, "discordTime", "unix;[estilo]", "Hora que Discord muestra en la zona de cada persona (estilo: t T d D f F R).", (c, a) => `<t:${Math.floor(N(a[0]))}:${/^[tTdDfFR]$/.test(S(a[1])) ? a[1] : "f"}>`, { min: 1 });

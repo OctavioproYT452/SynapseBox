@@ -4,6 +4,7 @@
 //         $jsonArray $jsonArrayAppend $jsonArrayUnshift $jsonArrayPop $jsonArrayShift $jsonArrayCount $jsonArrayIndex
 //         $jsonArrayReverse $jsonArraySort $jsonJoinArray $jsonObjectCount $jsonLength $jsonKeys $jsonType
 //         $jsonArrayUnique $jsonArrayRemove $jsonArraySum
+//         $jsonArrayMax $jsonArrayMin $jsonArrayAverage $jsonArrayInsert $jsonArraySlice $jsonValues $jsonMerge
 // Seguridad: solo http/https, nunca hacia redes internas (localhost, 10.x, 192.168.x, 169.254.x…; se comprueba la dirección
 // ya resuelta en el momento de conectar), máximo 5 peticiones por ejecución, 8 s por petición, respuesta de hasta 1 MB y
 // 3 redirecciones. Los datos JSON viven solo durante la ejecución del comando.
@@ -191,6 +192,21 @@ module.exports = function install(F, { S, N, act }) {
   F(CJ, "jsonArrayRemove", "clave;…;valor", "Quita de la lista todos los elementos iguales al valor. Devuelve cuántos quitó.", (c, a) => {
     const l = target(c, keyList(a.slice(0, -1)).filter(x => x !== ""), "$jsonArrayRemove"), v = S(a[a.length - 1]), keep = l.filter(x => !(show(x) === v || JSON.stringify(x) === v)), n = l.length - keep.length; l.splice(0, l.length, ...keep); return n;
   }, { min: 2 });
+  const numsOf = (c, a, n) => target(c, keyList(a).filter(x => x !== ""), n).map(x => typeof x === "number" ? x : (typeof x === "string" && x.trim() !== "" && isFinite(x)) ? +x : NaN).filter(x => !isNaN(x));
+  F(CJ, "jsonArrayMax", "clave;…", "El número mayor de la lista (vacío si no hay números).", (c, a) => { const v = numsOf(c, a, "$jsonArrayMax"); return v.length ? Math.max(...v) : ""; }, { min: 1 });
+  F(CJ, "jsonArrayMin", "clave;…", "El número menor de la lista (vacío si no hay números).", (c, a) => { const v = numsOf(c, a, "$jsonArrayMin"); return v.length ? Math.min(...v) : ""; }, { min: 1 });
+  F(CJ, "jsonArrayAverage", "clave;…", "Promedio de los números de la lista (vacío si no hay números).", (c, a) => { const v = numsOf(c, a, "$jsonArrayAverage"); return v.length ? +(v.reduce((s, x) => s + x, 0) / v.length).toFixed(6) : ""; }, { min: 1 });
+  F(CJ, "jsonArrayInsert", "clave;…;posición;valor", "Inserta un valor en una posición de la lista (desde 0).", (c, a) => { const l = target(c, keyList(a.slice(0, -2)).filter(x => x !== ""), "$jsonArrayInsert"), p = Math.max(0, Math.min(l.length, Math.round(N(a[a.length - 2])))); l.splice(p, 0, parseLoose(S(a[a.length - 1]))); limit(c); return ""; }, { min: 3, q: true });
+  F(CJ, "jsonArraySlice", "clave;…;desde;[hasta]", "Guarda en la lista solo el tramo indicado (desde 0, «hasta» no incluido).", (c, a) => {
+    const two = a.length >= 3 && /^-?\d+$/.test(S(a[a.length - 1]).trim()) && /^-?\d+$/.test(S(a[a.length - 2]).trim()), n = two ? 2 : 1, l = target(c, keyList(a.slice(0, -n)).filter(x => x !== ""), "$jsonArraySlice");
+    const out = l.slice(Math.round(N(a[a.length - n])), two ? Math.round(N(a[a.length - 1])) : undefined); l.splice(0, l.length, ...out); return "";
+  }, { min: 2, q: true });
+  F(CJ, "jsonValues", "[clave;…]", "Los valores de un objeto (o los elementos de una lista) separados por coma.", (c, a) => { const keys = keyList(a).filter(x => x !== ""); check(keys); const v = keys.length ? walk(c.json, keys) : c.json; return isObj(v) ? (Array.isArray(v) ? v : Object.values(v)).map(show).join(", ") : ""; });
+  F(CJ, "jsonMerge", "json", "Mezcla un objeto JSON con el actual: sus claves se suman o reemplazan a las existentes (solo primer nivel).", (c, a) => {
+    const s = S(a[0]); if (s.length > MAX_JSON) throw Error("el JSON es demasiado grande (máx. 200 KB)"); let o; try { o = JSON.parse(s); } catch { throw Error("el texto no es un JSON válido"); }
+    if (!isObj(o) || Array.isArray(o)) throw Error("$jsonMerge necesita un objeto { }"); const r = needRoot(c); if (!isObj(r) || Array.isArray(r)) throw Error("el JSON actual no es un objeto");
+    for (const k of Object.keys(o)) if (!BAD_KEYS.has(k)) r[k] = o[k]; limit(c); return "";
+  }, { min: 1, q: true });
   F(CJ, "jsonArraySum", "clave;…", "Suma los números de la lista (ignora lo que no sea número).", (c, a) => +target(c, keyList(a).filter(x => x !== ""), "$jsonArraySum").reduce((s, x) => s + (typeof x === "number" ? x : isNaN(parseFloat(x)) || !isFinite(x) ? 0 : +x), 0).toFixed(6));
   F(CJ, "jsonArrayIndex", "clave;…;valor", "Posición (desde 0) de un valor en la lista, o -1 si no está.", (c, a) => {
     const l = target(c, keyList(a.slice(0, -1)).filter(x => x !== ""), "$jsonArrayIndex"), v = S(a[a.length - 1]);

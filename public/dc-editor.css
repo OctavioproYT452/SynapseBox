@@ -1,4 +1,4 @@
-/* Editor de comandos de Discord (SBScript) y su wiki. Todas las clases llevan el prefijo dc- para no chocar con style.css (rediseño 2.15.2) */
+/* Editor de comandos de Discord (SBScript) y su wiki. Todas las clases llevan el prefijo dc- para no chocar con style.css (rediseño 2.15.3) */
 body[data-page=dcedit]{overflow:hidden}
 .dc-app{--dc-fs:13.5px;--dc-lh:21px;--dc-pad:12px;--dc-edbg:color-mix(in srgb,var(--bg) 88%,#000);--dc-gutbg:color-mix(in srgb,var(--bg) 78%,#000);--dc-hover:color-mix(in srgb,var(--accent) 12%,var(--card2));--dc-sel:color-mix(in srgb,var(--accent) 22%,var(--card2));
   display:grid;grid-template-columns:292px minmax(0,1fr);height:calc(100dvh - 58px);background:var(--bg)}
