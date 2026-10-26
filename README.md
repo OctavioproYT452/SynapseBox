@@ -11,7 +11,7 @@ Sube, organiza, edita y comparte archivos desde cualquier dispositivo, con usuar
 
 </div>
 
-> **Versión 2.16.1.** Qué ha cambiado en esta versión: consulta [RELEASE.md](RELEASE.md).
+> **Versión 2.16.2.** Qué ha cambiado en esta versión: consulta [RELEASE.md](RELEASE.md).
 
 ---
 
@@ -51,6 +51,7 @@ Sube, organiza, edita y comparte archivos desde cualquier dispositivo, con usuar
 - Renombrar, mover, **duplicar** y eliminar, también en **selección múltiple**.
 - **Descarga en ZIP** de carpetas o de una selección de elementos.
 - **Comprimir en ZIP** (el archivo se guarda en la misma carpeta, dentro de tu espacio) y **descomprimir** un `.zip` en una carpeta nueva, desde el menú de cada elemento o en selección múltiple.
+- **Propiedades (2.16.2):** en el menú de cada archivo o carpeta, muestra tipo, tamaño (en una carpeta, el total de su contenido y cuántos elementos tiene), ubicación, fecha de modificación y de creación y, en archivos de hasta 500 MB, la huella **SHA-256** (se calcula al pulsar «Calcular» y se puede copiar) para comprobar que un archivo no cambió.
 - **Fondo con imagen, GIF o vídeo** y botones con imagen o GIF en los temas.
 - **Enlaces para compartir** con caducidad, **contraseña opcional**, revocables en cualquier momento y con descarga de carpetas en ZIP.
 - **Carpetas colaborativas**: comparte una carpeta con otros usuarios por su UUID y asigna a cada uno un rol (solo lectura, edición, creación o permisos totales).
@@ -353,7 +354,7 @@ Disponible en `/admin/` solo para administradores. Usa el mismo menú de usuario
 - La versión instalada está en `data/version.json`:
 
   ```json
-  { "version": "2.16.1" }
+  { "version": "2.16.2" }
   ```
 
 - Cada 2 minutos el servidor lee ese archivo local y lo compara con el `data/version.json` publicado en GitHub. Si el de GitHub es más nuevo (se comparan los números: `2.10` es mayor que `2.9`), los **administradores** ven un aviso de nueva versión con instrucciones para actualizar.
@@ -455,7 +456,7 @@ Desde **Admin → Discord → Abrir el editor de comandos** (`/admin/discord.htm
 - **Acceso por comando:** todos, solo cuentas vinculadas, solo admins de SynapseBox, o admins y gestores del servidor.
 - **Carpetas:** organiza los comandos en carpetas (hasta 3 niveles), arrastra un comando a una carpeta para moverlo, renómbralas o bórralas.
 - **Archivos:** al guardar, cada comando se escribe como un archivo `.sbs` (los `.fcs` antiguos se siguen leyendo) en `data/discord-commands/<carpeta>/`. Se compilan una sola vez y se ejecutan desde la memoria; puedes hacer copia de seguridad de esa carpeta o editar los archivos a mano (se leen al reiniciar).
-- **Wiki:** `/admin/discord-wiki.html` (también desde el editor) con guías, recetas y la referencia de las 301 funciones con ejemplos, filtros por categoría, marca de «nuevo» y buscador (tecla `/`).
+- **Wiki:** `/admin/discord-wiki.html` (también desde el editor) con guías, recetas y la referencia de las 329 funciones con ejemplos, filtros por categoría, marca de «nuevo» y buscador (tecla `/`).
 - **Editor (rediseñado en la 2.15.3):** explorador con carpetas (editar, duplicar, borrar y arrastrar), propiedades, panel de problemas, panel de pruebas y barra de estado; resaltado de sintaxis (funciones, bloques, corchetes por niveles, errores en rojo), autocompletado al escribir `$`, números de línea con errores marcados, panel de funciones con buscador y **prueba en vivo** que no envía nada a Discord (las acciones como dar roles o expulsar solo se describen). Desde la 2.15.3 añade línea actual resaltada, sangría automática dentro de `$if`/`$for`/`$while`, **Tab / Mayús+Tab** para sangrar varias líneas, **Ctrl+/** para comentar, **Ctrl+Enter** para probar, `\[` sin cierre automático (para JSON), autocompletado que se abre hacia arriba si no cabe y, en móvil, una barra con `$ [ ] ; \ { }` y texto a 16 px (sin zoom al escribir).
 - **Comandos de prefijo y de mensaje** necesitan el permiso especial «Message Content Intent» (Developer Portal → Bot → Privileged Gateway Intents). Sin él, el bot arranca igual y los comandos slash funcionan.
 
@@ -474,11 +475,13 @@ $footer[Tu espacio: $sbSpace de $sbQuota]
 
 **Sintaxis:** `$funcion` o `$funcion[arg1;arg2]` (se pueden anidar). Escapes: `\$ \; \[ \]`. Comentarios: líneas que empiezan por `//` o `$c[texto]`. Bloques: `$if / $elseif / $else / $endif`, `$for[var;desde;hasta] … $endfor` y `$while[cond] … $endwhile` (máx. 200 vueltas). Operadores: `== != > < >= <= ~=` (contiene), `&&`, `||`.
 
-**Funciones (301):** contexto (`$username`, `$message[1]`, `$option[x]`, `$mentioned`, `$serverName`, `$hasRole`…), respuesta (`$title`, `$description`, `$color`, `$addField`, `$ephemeral`, `$sendMessage`, `$sendDM` (también a otro usuario por ID), `$addReaction`…), lógica (`$onlyIf`, `$onlyAdmin`, `$onlyPerms`, `$onlyRoles`, `$onlyLinked`, `$cooldown`, `$stop`, `$set/$get`), variables guardadas por usuario, servidor o globales (`$setUserVar`, `$getServerVar`, `$topUserVar`…), matemáticas (`$calc`, `$random`, `$round`…), texto (`$upper`, `$replace`, `$split`, `$contains`, `$choose`…), tiempo (`$date`, `$discordTime`, `$duration`), SynapseBox (`$sbUser`, `$sbSpace`, `$sbQuota`, `$sbUsers`, `$sbVersion`) y moderación (`$giveRole`, `$takeRole`, `$kick`, `$ban`, `$timeout`, `$deleteMessages`). La lista completa, con descripción de cada una, está en el panel *Funciones* del editor.
+**Funciones (329):** contexto (`$username`, `$message[1]`, `$option[x]`, `$mentioned`, `$serverName`, `$hasRole`…), respuesta (`$title`, `$description`, `$color`, `$addField`, `$ephemeral`, `$sendMessage`, `$sendDM` (también a otro usuario por ID), `$addReaction`…), lógica (`$onlyIf`, `$onlyAdmin`, `$onlyPerms`, `$onlyRoles`, `$onlyLinked`, `$cooldown`, `$stop`, `$set/$get`), variables guardadas por usuario, servidor o globales (`$setUserVar`, `$getServerVar`, `$topUserVar`…), matemáticas (`$calc`, `$random`, `$round`…), texto (`$upper`, `$replace`, `$split`, `$contains`, `$choose`…), tiempo (`$date`, `$discordTime`, `$duration`), SynapseBox (`$sbUser`, `$sbSpace`, `$sbQuota`, `$sbUsers`, `$sbVersion`) y moderación (`$giveRole`, `$takeRole`, `$kick`, `$ban`, `$timeout`, `$deleteMessages`). La lista completa, con descripción de cada una, está en el panel *Funciones* del editor.
 
 **Novedades de SBScript en la 2.10.11:** tarjetas completas (`$footerIcon`, `$authorIcon`, `$authorUrl`, `$titleUrl`), captcha con imagen (`$genCaptcha` genera un PNG sin dependencias, lo incluye en la tarjeta y guarda el código en la variable de usuario `captcha`; `$checkCaptcha` y `$clearCaptcha` lo verifican y lo borran), contadores (`$incUserVar`, `$incServerVar`, `$incGlobalVar`, `$rankUserVar`), utilidades de texto, números y fechas (`$progressBar`, `$percent`, `$randomString`, `$truncate`, `$parseDate`, `$timeAgo`…), más moderación (`$setNickname`, `$unban`, `$slowmode`) y **funciones de IA** (`$ai`, `$aiSummarize`, `$aiTranslate`, `$aiClassify`, `$aiSentiment`, `$aiModerate`…) que usan la IA configurada en el panel. Las funciones de IA solo envían y reciben texto, tratan lo que escribe el usuario como datos, limitan a 3 llamadas por ejecución y cuentan en el límite de IA de la cuenta vinculada (o 10 por hora si no la hay); en comandos slash el bot responde «pensando…» mientras espera.
 
 **Roles de autoservicio (2.10.11):** `$grantRole[idRol]` y `$revokeRole[idRol]` los ejecuta el **bot**, así que quien usa el comando no necesita permisos (ideal para el captcha). El bot necesita «Gestionar roles», su rol debe estar por encima del rol a dar, y por seguridad se rechazan roles con permisos de gestión, de integraciones y @everyone. `$canGrantRole` y `$botHasPerm` permiten comprobarlo antes.
+
+**Novedades de SBScript en la 2.16.2 (equivalentes de BDFD):** `$replaceText`, `$cropText`, `$charCount`, `$byteCount`, `$numberSeparator`, `$checkContains`, `$checkCondition`, `$randomText`, `$sub`, `$multi`, `$divide`, `$modulo`, `$isInteger`, `$isValidHex`, `$textSplit` con `$splitText`, `$getTextSplitLength`, `$joinSplitText`, `$editSplitText` y `$removeSplitTextElement`, `$year`, `$month`, `$day`, `$hour`, `$minute`, `$second` (UTC o la zona que indiques, p. ej. `$hour[Europe/Madrid]`), `$dateStamp` y `$getTimestamp`. También se aceptan con su nombre de BDFD `$toLowercase`, `$toUppercase`, `$toTitleCase`, `$trimSpace`, `$authorID`, `$authorAvatar`, `$membersCount` y `$guildID`.
 
 **Novedades de SBScript en la 2.16.0:** Discord: `$bold`, `$italic`, `$underline`, `$strike`, `$spoiler`, `$quote`, `$inlineCode`, `$codeBlock`, `$hyperlink`, `$stripMarkdown`; texto: `$swapCase`, `$kebabCase`, `$pascalCase`, `$extractNumbers`, `$longestWord`, `$vowelCount`, `$isUrl`, `$isEmail`, `$domain`; matemáticas: `$cbrt`, `$hypot`, `$sin`, `$cos`, `$tan`, `$mode`, `$variance`, `$distance`, `$percentChange`, `$celsiusToFahrenheit`, `$fahrenheitToCelsius`; tiempo: `$timestampCode` (código de hora de Discord de ahora, sin tocar el embed), `$addDays`, `$isWeekend`, `$quarter`; JSON: `$jsonArrayRandom`, `$jsonArrayShuffle`, `$jsonArrayFlat`.
 
@@ -707,6 +710,7 @@ Todas las rutas `/api/*` devuelven JSON y requieren sesión, salvo `login`, `reg
 | `POST` | `/api/mkdir`, `/api/create-file`, `/api/upload` | Crear y subir. |
 | `POST` | `/api/rename`, `/api/move`, `/api/copy`, `/api/delete`, `/api/edit`, `/api/fav` | Operaciones sobre elementos. |
 | `GET` | `/api/download`, `/api/preview`, `/api/zip`, `/api/file-content` | Lectura y descarga. |
+| `GET` | `/api/file-info?path=…[&hash=1]` | Propiedades de un archivo o carpeta; con `hash=1`, su SHA-256 (archivos de hasta 500 MB). |
 | `POST` / `GET` | `/api/share`, `/api/shares`, `/api/share/revoke` | Enlaces compartidos. |
 | `GET` / `POST` | `/api/trash`, `/api/trash/restore`, `/api/trash/delete`, `/api/trash/empty` | Papelera de reciclaje. |
 | `GET` | `/api/stats` | Espacio por tipo, carpetas más pesadas y archivos antiguos. |

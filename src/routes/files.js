@@ -70,6 +70,15 @@ router.post("/api/upload", need, wrap(async (req, res) => {
 
 router.get("/api/download", need, wrap(async (req, res) => { const sp = await space(req, "read"); serve(res, fileOf(req, sp.root), true); }));
 router.get("/api/preview", need, wrap(async (req, res) => { const sp = await space(req, "read"); serve(res, fileOf(req, sp.root)); }));
+// Propiedades de un archivo o carpeta (y, a petición, su huella SHA-256 para comprobar que no cambió).
+const sha256 = f => new Promise((ok, ko) => { const h = require("crypto").createHash("sha256"), s = require("fs").createReadStream(f); s.on("data", d => h.update(d)); s.on("error", ko); s.on("end", () => ok(h.digest("hex"))); });
+router.get("/api/file-info", need, wrap(async (req, res) => {
+  const sp = await space(req, "read"), f = safe(sp.root, req.query.path), s = await fsp.stat(f).catch(() => { throw Error("No existe"); });
+  const out = { name: path.basename(f), isDir: s.isDirectory(), size: s.size, mtime: s.mtimeMs, ctime: s.birthtimeMs || s.ctimeMs };
+  if (out.isDir) { const es = await fsp.readdir(f, { withFileTypes: true }); out.dirs = es.filter(e => e.isDirectory()).length; out.files = es.filter(e => e.isFile()).length; out.size = await dirSize(f); }
+  else if (req.query.hash) { if (s.size > 5e8) throw Error("El archivo es demasiado grande para calcular su huella (máx. 500 MB)"); out.sha256 = await sha256(f); }
+  res.json(out);
+}));
 router.get("/api/file-content", need, wrap(async (req, res) => {
   const sp = await space(req, "read"), f = fileOf(req, sp.root), s = await fsp.stat(f);
   if (s.isDirectory() || s.size > 2e6) throw Error("No se puede editar este archivo");

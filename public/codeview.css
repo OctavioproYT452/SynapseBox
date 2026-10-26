@@ -39,3 +39,6 @@ dialog.cvd.wide[open]{display:flex}
 .cv-ok{color:var(--ok,#34d399)}.cv-bad{color:var(--danger,#f87171);max-width:48ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:bottom}
 .cv-view,.cv-box textarea{scrollbar-width:thin}
 @media(max-width:700px){dialog.cvd.wide{width:100vw;height:100dvh;max-height:100dvh;border-radius:0;border:0}.cv-hint,.cv-b span{display:none}.cv-name{max-width:16ch}.cv-top{padding:8px}.cv-b{padding:0 9px}.cv-pri span{display:inline}}
+
+/* Propiedades de archivo (2.16.2) */
+.props{width:100%;border-collapse:collapse}.props td{padding:6px 10px 6px 0;vertical-align:top;border-bottom:1px solid var(--line);word-break:break-word}.props td:first-child{white-space:nowrap;width:1%}.props .hash{display:block;margin-bottom:6px;font:12px ui-monospace,Menlo,Consolas,monospace;word-break:break-all}

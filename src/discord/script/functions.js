@@ -344,7 +344,38 @@ F(C5, "percentChange", "antes;después", "Variación porcentual entre dos valore
 F(C5, "celsiusToFahrenheit", "grados", "De °C a °F.", (c, a) => +(N(a[0]) * 9 / 5 + 32).toFixed(4), { min: 1 });
 F(C5, "fahrenheitToCelsius", "grados", "De °F a °C.", (c, a) => +((N(a[0]) - 32) * 5 / 9).toFixed(4), { min: 1 });
 
+// ---- equivalentes de BDFD (2.16.2) ----
+F(C6, "replaceText", "texto;buscar;nuevo;[veces]", "Reemplaza lo que buscas (todas las veces o solo las primeras n). Como en BDFD.", (c, a) => { const t = S(a[0]), s = S(a[1]); if (!s) return t; const n = a[3] === undefined || a[3] === "" ? -1 : Math.round(N(a[3])); if (n < 0) return t.split(s).join(S(a[2])); let out = t, from = 0; for (let i = 0; i < n; i++) { const k = out.indexOf(s, from); if (k < 0) break; out = out.slice(0, k) + S(a[2]) + out.slice(k + s.length); from = k + S(a[2]).length; } return out; }, { min: 3 });
+F(C6, "cropText", "texto;largo;[final]", "Recorta el texto a ese largo y añade un final (por defecto nada) solo si se recortó.", (c, a) => { const ch = [...S(a[0])], n = Math.max(0, Math.round(N(a[1]))); return ch.length > n ? ch.slice(0, n).join("") + S(a[2]) : ch.join(""); }, { min: 2 });
+F(C6, "charCount", "texto", "Cuántos caracteres tiene el texto (los emojis cuentan como uno).", (c, a) => [...S(a[0])].length, { min: 1 });
+F(C6, "byteCount", "texto", "Cuántos bytes ocupa el texto en UTF-8.", (c, a) => Buffer.byteLength(S(a[0])), { min: 1 });
+F(C6, "numberSeparator", "número;[separador]", "Separa los miles. Ej.: $numberSeparator[1234567.5; ] → 1 234 567.5 (coma por defecto).", (c, a) => { const m = /^(-?)(\d+)(\.\d+)?$/.exec(S(a[0]).trim()); if (!m) return S(a[0]); return m[1] + m[2].replace(/\B(?=(\d{3})+(?!\d))/g, a[1] === undefined ? "," : S(a[1])) + (m[3] || ""); }, { min: 1 });
+F(C6, "checkContains", "texto;a;b;…", "true si el texto contiene alguno de los valores (distingue mayúsculas, como en BDFD).", (c, a) => a.slice(1).some(x => S(x) && S(a[0]).includes(S(x))), { min: 2 });
+F(C3, "checkCondition", "condición", "true o false según se cumpla la condición. Ej.: $checkCondition[$message==hola].", async (c, a) => !!(await R.cond(c, a[0] || [])), { lazy: true, min: 1 });
+F(C6, "randomText", "a;b;c;…", "Elige un texto al azar (igual que $choose, nombre de BDFD).", (c, a) => a[crypto.randomInt(a.length)] ?? "", { min: 1 });
+F(C5, "sub", "a;b;…", "Resta: a − b − …", (c, a) => +nums(a).reduce((x, y) => x - y).toFixed(10), { min: 2 });
+F(C5, "multi", "a;b;…", "Multiplica varios números.", (c, a) => { const r = nums(a).reduce((x, y) => x * y); if (!isFinite(r)) throw Error("el resultado es demasiado grande"); return +r.toFixed(10); }, { min: 2 });
+F(C5, "divide", "a;b;…", "Divide: a ÷ b ÷ …", (c, a) => { const v = nums(a); if (v.slice(1).some(x => !x)) throw Error("no se puede dividir entre 0"); return +v.reduce((x, y) => x / y).toFixed(10); }, { min: 2 });
+F(C5, "modulo", "a;b", "Resto de dividir a entre b (nombre de BDFD).", (c, a) => { if (!N(a[1])) throw Error("no se puede dividir entre 0"); return N(a[0]) % N(a[1]); }, { min: 2 });
+F(C5, "isInteger", "valor", "true si el valor es un número entero.", (c, a) => /^-?\d+$/.test(S(a[0]).trim()), { min: 1 });
+F(C5, "isValidHex", "valor", "true si es un color hexadecimal válido (#fff, #ffffff, ffffff).", (c, a) => /^#?(?:[\da-fA-F]{3}|[\da-fA-F]{6})$/.test(S(a[0]).trim()), { min: 1 });
+// Lista de trabajo de BDFD: $textSplit la crea y las demás la usan durante el mismo comando
+const parts = c => c.bdSplit || (c.bdSplit = []);
+const at = (l, n) => { n = Math.round(N(n)); const i = n > 0 ? n - 1 : l.length + n; return i >= 0 && i < l.length ? i : -1; };
+F(C6, "textSplit", "texto;[separador]", "Divide el texto en partes (separador: espacio por defecto) para usarlas con $splitText y compañía. No muestra nada.", (c, a) => { const t = S(a[0]); c.bdSplit = (a[1] === undefined || a[1] === "" ? t.split(" ") : t.split(S(a[1]))).slice(0, 1000); return ""; }, { min: 1, q: true });
+F(C6, "splitText", "n", "La parte n (desde 1) de $textSplit; vacío si no existe.", (c, a) => { const l = parts(c), i = at(l, a[0]); return i < 0 ? "" : l[i]; }, { min: 1 });
+F(C6, "getTextSplitLength", "", "Cuántas partes tiene el texto dividido con $textSplit.", c => parts(c).length);
+F(C6, "joinSplitText", "[separador]", "Une las partes de $textSplit con el separador (espacio por defecto).", (c, a) => parts(c).join(a[0] === undefined ? " " : S(a[0])));
+F(C6, "editSplitText", "n;nuevo", "Cambia la parte n de $textSplit. No muestra nada.", (c, a) => { const l = parts(c), i = at(l, a[0]); if (i < 0) throw Error("$editSplitText: no existe la parte " + S(a[0])); l[i] = S(a[1]); return ""; }, { min: 2, q: true });
+F(C6, "removeSplitTextElement", "n", "Quita la parte n de $textSplit. No muestra nada.", (c, a) => { const l = parts(c), i = at(l, a[0]); if (i < 0) throw Error("$removeSplitTextElement: no existe la parte " + S(a[0])); l.splice(i, 1); return ""; }, { min: 1, q: true });
+for (const [alias, orig] of [["toLowercase", "lower"], ["toUppercase", "upper"], ["toTitleCase", "titlecase"], ["trimSpace", "trim"], ["authorID", "userid"], ["authorAvatar", "avatar"], ["membersCount", "membercount"], ["guildID", "serverid"]]) FN[alias.toLowerCase()] = FN[orig]; // nombres de BDFD que ya existían con otro nombre
 const C7 = "Tiempo";
+const zoned = (tz, d = new Date()) => { try { const p = {}; for (const x of new Intl.DateTimeFormat("en-GB", { timeZone: tz || "UTC", hourCycle: "h23", year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric" }).formatToParts(d)) p[x.type] = +x.value; return p; } catch { throw Error("zona horaria no válida: " + tz); } };
+for (const [n, k, d] of [["year", "year", "El año actual"], ["month", "month", "El mes actual (1 a 12)"], ["day", "day", "El día del mes actual"], ["hour", "hour", "La hora actual (0 a 23)"], ["minute", "minute", "El minuto actual"], ["second", "second", "El segundo actual"]])
+  F(C7, n, "[zona]", d + " (UTC por defecto; puedes indicar una zona, p. ej. Europe/Madrid o America/Mexico_City).", (c, a) => zoned(S(a[0]))[k]);
+F(C7, "dateStamp", "", "Milisegundos desde 1970 (ahora), como en BDFD. Para segundos usa $unix.", () => Date.now());
+F(C7, "getTimestamp", "", "Igual que $dateStamp: milisegundos desde 1970.", () => Date.now());
+
 F(C7, "addDays", "unix;días", "Suma (o resta, con negativo) días a una fecha en segundos Unix. Devuelve segundos Unix.", (c, a) => Math.round(N(a[0])) + Math.round(N(a[1])) * 86400, { min: 2 });
 F(C7, "isWeekend", "[unix]", "true si la fecha (UTC; ahora por defecto) cae en sábado o domingo.", (c, a) => { const d = new Date((a[0] === undefined || a[0] === "" ? Date.now() / 1000 : N(a[0])) * 1000).getUTCDay(); return d === 0 || d === 6; });
 F(C7, "quarter", "[mes]", "Trimestre del año (1 a 4) de un mes (el actual por defecto).", (c, a) => { const m = Math.round(N(a[0], new Date().getUTCMonth() + 1)); if (m < 1 || m > 12) throw Error("el mes debe estar entre 1 y 12"); return Math.ceil(m / 3); });

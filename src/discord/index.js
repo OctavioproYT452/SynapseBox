@@ -81,7 +81,7 @@ async function handle(i) {
   try {
     if (i.isChatInputCommand()) { if (!(custom.hasSlash(i.commandName) && await custom.runSlash(i))) await cmds.run(i); }
     else if ((i.isButton() || i.isModalSubmit()) && String(i.customId).startsWith("tk:")) await cmds.tickets.component(i);
-    else if (i.isButton() && String(i.customId).startsWith("fcs:") || String(i.customId).startsWith("sbs:")) await custom.runButton(i);
+    else if (i.isButton() && (String(i.customId).startsWith("fcs:") || String(i.customId).startsWith("sbs:"))) await custom.runButton(i);
     else if (i.isModalSubmit() && (i.customId === "sb-link" || i.customId === "fc-link")) await cmds.submitLink(i);
     else if (i.isModalSubmit() && (i.customId === "sb-welcome" || i.customId === "fc-welcome")) await cmds.submitWelcome(i);
   } catch (e) {

@@ -1,19 +1,29 @@
-# Versión 2.16.1
+# Versión 2.16.2
 
-Lector y editor de código con resaltador de sintaxis local en los archivos del usuario.
+Corrección de errores, funciones equivalentes a BDFD para SBScript y «Propiedades» en el panel de archivos.
 
-## Novedades
-- **Resaltador de sintaxis local:** nuevo `public/js/codeview.js`, sin librerías ni CDN (funciona sin Internet). Entiende JavaScript/TypeScript, JSON, HTML/XML, CSS/SCSS, Python, Java/C#/Kotlin, C/C++, PHP, Go, Rust, Shell, SQL, YAML, INI/TOML/.env, Markdown, CSV y registros.
-- **«Ver» ahora abre un lector de solo lectura** para JSON, código y texto: resaltado, numeración, copiar, ajustar líneas y, en JSON, validación y vista formateada (el archivo no se modifica). No hay ningún campo de texto, así que en el móvil **no aparece el teclado**. Con permiso de escritura se ofrece **Editar** desde el propio lector.
-- **«Editar» parece un editor de verdad:** resaltado mientras escribes, numeración, línea actual marcada, barra de estado (línea/columna, selección, JSON válido o no), punto de cambios sin guardar, aviso al cerrar con cambios, **Ctrl+S**, **Ctrl+/**, **Tab / Mayús+Tab**, sangría automática, cierre automático de paréntesis, corchetes, llaves y comillas, y deshacer del navegador conservado. En móvil usa letra de 15 px y pantalla completa.
-- Más extensiones reconocidas como texto/código en el panel: `.ts .tsx .jsx .mjs .cjs .vue .scss .less .go .rs .rb .cs .kt .swift .sh .bash .sql .yaml .toml .conf .cfg .env .properties .tsv .markdown` y otras.
+## Errores corregidos
+- **Botones y modales de Discord:** en `src/discord/index.js` una condición mal agrupada (`A && B || C`) hacía que cualquier interacción cuyo id empezara por `sbs:` se tratara como botón aunque no lo fuera. Ahora solo se tratan como botón los botones con id `fcs:` o `sbs:`.
+- **Wiki de SBScript:** los 8 ejemplos que faltaban (`$median`, `$coinFlip`, `$average`, `$dice`, `$isPalindrome`, `$initials`, `$daysUntil`, `$weekday`) ya están y se comprobaron uno a uno; el resto de ejemplos se ejecutaron en seco y los únicos que no corren fuera de Discord son los que necesitan un usuario o la IA.
+- Revisadas las rutas de archivos, el descompresor y el guardado de comandos `.sbs`/`.fcs` tras los cambios de las versiones anteriores: sin más fallos.
+
+## Nuevas funciones de SBScript (28, equivalentes de BDFD)
+- **Texto:** `$replaceText[texto;buscar;nuevo;veces]`, `$cropText`, `$charCount`, `$byteCount`, `$numberSeparator`, `$checkContains`, `$randomText`.
+- **Lógica:** `$checkCondition[condición]`.
+- **Matemáticas:** `$sub`, `$multi`, `$divide`, `$modulo`, `$isInteger`, `$isValidHex`.
+- **Lista de partes (como en BDFD):** `$textSplit`, `$splitText`, `$getTextSplitLength`, `$joinSplitText`, `$editSplitText`, `$removeSplitTextElement`.
+- **Tiempo:** `$year`, `$month`, `$day`, `$hour`, `$minute`, `$second` (UTC o una zona, p. ej. `$hour[Europe/Madrid]`), `$dateStamp`, `$getTimestamp`.
+- **Nombres de BDFD aceptados** para funciones que ya existían: `$toLowercase`, `$toUppercase`, `$toTitleCase`, `$trimSpace`, `$authorID`, `$authorAvatar`, `$membersCount`, `$guildID`.
+- La wiki (y la de la IA del editor) tiene ejemplo y marca «Nuevo» para cada una, y un consejo para quien viene de BDFD.
+
+## Panel de usuarios
+- **Propiedades:** nueva opción en el menú de cada archivo o carpeta con tipo, tamaño (en carpetas, el total y cuántos elementos), ubicación, fechas de modificación y creación y huella **SHA-256** de archivos de hasta 500 MB (botón «Calcular» y «Copiar»). Usa la ruta nueva `GET /api/file-info` y respeta el sandbox y los permisos de las carpetas compartidas.
 
 ## Compatibilidad
-- Sin cambios en el servidor, la base de datos, los plugins ni las rutas: se usan los mismos `/api/file-content` y `/api/edit` (límite de 2 MB para abrir archivos, como antes).
-- Los archivos de más de 300 KB se muestran/editan sin colores para no ralentizar; el lector muestra las primeras 5000 líneas.
-- Los archivos HTML no resaltan el JavaScript ni el CSS que lleven dentro.
+- Sin cambios en la base de datos ni en los plugins. Los comandos existentes siguen igual; solo ten en cuenta que `$year`, `$month`, `$day`, `$hour`, `$minute` y `$second` ahora son funciones.
+- `data/` solo lleva `version.json`.
 
 ## Archivos modificados
-- Nuevos: `public/js/codeview.js`, `public/codeview.css`
-- `public/js/panel.js`, `public/panel.html`
+- `src/discord/index.js`, `src/discord/script/functions.js`, `src/discord/script/wiki.js`, `src/routes/files.js`
+- `public/js/panel.js`, `public/codeview.css`
 - `README.md`, `RELEASE.md`, `package.json`, `data/version.json`
