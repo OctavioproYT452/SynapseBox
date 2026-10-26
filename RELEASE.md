@@ -1,26 +1,19 @@
-# Versión 2.16.0
+# Versión 2.16.1
 
-Sandbox de archivos más estricto y más funciones para SBScript.
+Lector y editor de código con resaltador de sintaxis local en los archivos del usuario.
 
-## Seguridad
-- **Sandbox de usuarios:** `safe()` (la comprobación central de rutas que usan archivos, subidas, compartir, colaboración, papelera, WebDAV y la IA) ahora, además de rechazar `..` y rutas absolutas, **resuelve los enlaces simbólicos en disco** y rechaza cualquier ruta cuyo destino real quede fuera de la carpeta raíz del usuario. También rechaza caracteres de control y rutas de más de 4096 caracteres.
-- **Descomprimir ZIP:** además de lo que ya hacía (rutas con `..`, absolutas, enlaces simbólicos omitidos, bombas de compresión, CRC), ahora rechaza rutas `//`, caracteres de control, más de 64 niveles de carpetas y nombres de más de 255 caracteres, y comprueba en disco que cada carpeta creada sigue dentro del destino.
-- Los nombres de archivo con caracteres de control ya no se aceptan.
-- Probado con enlaces simbólicos hacia fuera, `../`, ZIP con `../../`, rutas absolutas y entradas que son enlaces.
-
-## Nuevas funciones (37)
-- **Formato de Discord:** `$bold`, `$italic`, `$underline`, `$strike`, `$spoiler`, `$quote`, `$inlineCode`, `$codeBlock`, `$hyperlink`, `$stripMarkdown`.
-- **Texto:** `$swapCase`, `$kebabCase`, `$pascalCase`, `$extractNumbers`, `$longestWord`, `$vowelCount`, `$isUrl`, `$isEmail`, `$domain`.
-- **Matemáticas:** `$cbrt`, `$hypot`, `$sin`, `$cos`, `$tan`, `$mode`, `$variance`, `$distance`, `$percentChange`, `$celsiusToFahrenheit`, `$fahrenheitToCelsius`.
-- **Tiempo:** `$timestampCode` (devuelve el código de hora de Discord de ahora, p. ej. `<t:1700000000:R>`, para usarlo donde quieras; a diferencia de `$timestamp`, no pone la fecha en el embed), `$addDays`, `$isWeekend`, `$quarter`.
-- **JSON:** `$jsonArrayRandom`, `$jsonArrayShuffle`, `$jsonArrayFlat`.
-- La wiki (y la wiki de la IA del editor) incluye ejemplo y marca «Nuevo» para cada una.
+## Novedades
+- **Resaltador de sintaxis local:** nuevo `public/js/codeview.js`, sin librerías ni CDN (funciona sin Internet). Entiende JavaScript/TypeScript, JSON, HTML/XML, CSS/SCSS, Python, Java/C#/Kotlin, C/C++, PHP, Go, Rust, Shell, SQL, YAML, INI/TOML/.env, Markdown, CSV y registros.
+- **«Ver» ahora abre un lector de solo lectura** para JSON, código y texto: resaltado, numeración, copiar, ajustar líneas y, en JSON, validación y vista formateada (el archivo no se modifica). No hay ningún campo de texto, así que en el móvil **no aparece el teclado**. Con permiso de escritura se ofrece **Editar** desde el propio lector.
+- **«Editar» parece un editor de verdad:** resaltado mientras escribes, numeración, línea actual marcada, barra de estado (línea/columna, selección, JSON válido o no), punto de cambios sin guardar, aviso al cerrar con cambios, **Ctrl+S**, **Ctrl+/**, **Tab / Mayús+Tab**, sangría automática, cierre automático de paréntesis, corchetes, llaves y comillas, y deshacer del navegador conservado. En móvil usa letra de 15 px y pantalla completa.
+- Más extensiones reconocidas como texto/código en el panel: `.ts .tsx .jsx .mjs .cjs .vue .scss .less .go .rs .rb .cs .kt .swift .sh .bash .sql .yaml .toml .conf .cfg .env .properties .tsv .markdown` y otras.
 
 ## Compatibilidad
-- Sin cambios en la base de datos, los plugins ni los comandos guardados.
-- Si algún día enlazas a mano una carpeta de usuario con un enlace simbólico, el destino debe seguir dentro de esa misma carpeta; los que apuntan fuera dejan de funcionar (es lo que se busca).
-- La carpeta `data/` del paquete solo lleva `version.json`.
+- Sin cambios en el servidor, la base de datos, los plugins ni las rutas: se usan los mismos `/api/file-content` y `/api/edit` (límite de 2 MB para abrir archivos, como antes).
+- Los archivos de más de 300 KB se muestran/editan sin colores para no ralentizar; el lector muestra las primeras 5000 líneas.
+- Los archivos HTML no resaltan el JavaScript ni el CSS que lleven dentro.
 
 ## Archivos modificados
-- `src/lib/paths.js`, `src/lib/unzip.js`, `src/discord/script/functions.js`, `src/discord/script/httpjson.js`, `src/discord/script/wiki.js`
+- Nuevos: `public/js/codeview.js`, `public/codeview.css`
+- `public/js/panel.js`, `public/panel.html`
 - `README.md`, `RELEASE.md`, `package.json`, `data/version.json`

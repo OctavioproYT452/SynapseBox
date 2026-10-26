@@ -11,7 +11,7 @@ Sube, organiza, edita y comparte archivos desde cualquier dispositivo, con usuar
 
 </div>
 
-> **Versión 2.16.0.** Qué ha cambiado en esta versión: consulta [RELEASE.md](RELEASE.md).
+> **Versión 2.16.1.** Qué ha cambiado en esta versión: consulta [RELEASE.md](RELEASE.md).
 
 ---
 
@@ -315,6 +315,8 @@ Cada servidor tiene su propia comunidad de temas, accesible desde el menú de us
 
 Al abrir un archivo en el panel se muestra una vista previa integrada:
 
+- **Código, JSON y texto (2.16.1)**: **Ver** abre un **lector de solo lectura** con resaltado de sintaxis, numeración de líneas, copiar, ajuste de línea y, en JSON, validación y vista formateada. No tiene ningún campo de texto, así que en el móvil **no sale el teclado**; si tienes permiso de escritura, el botón **Editar** pasa al editor. El resaltador es **propio y local** (`public/js/codeview.js`, sin librerías ni CDN) y entiende JavaScript/TypeScript, JSON, HTML/XML, CSS/SCSS, Python, Java/C#/Kotlin, C/C++, PHP, Go, Rust, Shell, SQL, YAML, INI/TOML/.env, Markdown, CSV y registros (`.log`). Los archivos de más de 300 KB se muestran sin colores y el lector enseña las primeras 5000 líneas.
+- **Editor de archivos (2.16.1)**: **Editar** abre un editor con resaltado mientras escribes, numeración, línea actual marcada, barra de estado (línea, columna, selección y validez del JSON), punto de «cambios sin guardar» y aviso al cerrar con cambios. Atajos: **Ctrl+S** guardar, **Ctrl+/** comentar, **Tab / Mayús+Tab** sangrar varias líneas; sangría automática, cierre automático de `() [] {} "" ''` y borrado de pares. Conserva el historial de deshacer del navegador.
 - Los **enlaces compartidos** (`/s/<token>`) usan estos mismos visores en su vista previa, también para visitantes sin cuenta.
 - **PDF**: visor propio con pdf.js (incluido en `public/vendor/`, no necesita Internet). Funciona en escritorio y móvil, con zoom y carga perezosa de páginas. Sustituye al visor del navegador, que fallaba en muchos dispositivos.
 - **Word, Excel y PowerPoint** (`.doc .docx .xls .xlsx .ppt .pptx`, y también `.odt .ods .odp .rtf`):
@@ -351,7 +353,7 @@ Disponible en `/admin/` solo para administradores. Usa el mismo menú de usuario
 - La versión instalada está en `data/version.json`:
 
   ```json
-  { "version": "2.16.0" }
+  { "version": "2.16.1" }
   ```
 
 - Cada 2 minutos el servidor lee ese archivo local y lo compara con el `data/version.json` publicado en GitHub. Si el de GitHub es más nuevo (se comparan los números: `2.10` es mayor que `2.9`), los **administradores** ven un aviso de nueva versión con instrucciones para actualizar.
@@ -680,7 +682,7 @@ Los plugins instalados viven en `data/plugins/` y su estado en `data/plugins-sta
 │   ├── vendor/            # pdf.js y JSZip (incluidos, sin depender de Internet)
 │   ├── themes.html        # Comunidad de temas
 │   ├── admin/             # Panel de administración
-│   ├── js/                # common.js, auth.js, bg.js, menu.js, nav.js, viewer.js, webdav.js, security.js, panel.js, admin.js, ai.js
+│   ├── js/                # common.js, auth.js, bg.js, menu.js, nav.js, viewer.js, codeview.js (resaltador, lector y editor de código), webdav.js, security.js, panel.js, admin.js, ai.js
 │   ├── auth.css           # Animaciones del inicio de sesión
 │   ├── style.css          # Sistema de diseño compartido
 │   └── icons.svg          # Iconos SVG

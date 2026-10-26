@@ -9,10 +9,10 @@ const _api=api;api=(url,body,method)=>{ // dentro de una carpeta compartida, las
   return _api(url,body,method)};
 let favs=new Set(),viewTitle='Resultados',sel=new Set(),selMode=false,searching=false,cwd='',items=[],me=null,list=localStorage.fcList==='1';
 const OFFICE=new Set('.doc .docx .xls .xlsx .ppt .pptx .odt .ods .odp .rtf'.split(' '));
-const EDIT=new Set('.txt .md .js .json .html .css .csv .log .xml .py .java .c .cpp .h .php .yml .ini'.split(' '));
+const EDIT=new Set('.txt .md .markdown .js .mjs .cjs .jsx .ts .tsx .json .jsonc .html .htm .vue .css .scss .less .csv .tsv .log .xml .py .rb .java .cs .kt .swift .c .cpp .cc .hpp .h .php .go .rs .sh .bash .zsh .sql .yml .yaml .toml .conf .cfg .env .ini .properties'.split(' '));
 const ext=n=>n.includes('.')?n.slice(n.lastIndexOf('.')).toLowerCase():'';
 const join=n=>cwd?cwd+'/'+n:n;
-const KIND={image:'.png .jpg .jpeg .gif .webp .svg .bmp .ico',video:'.mp4 .webm .mov .mkv',audio:'.mp3 .wav .flac .m4a .aac .ogg',doc:'.pdf .doc .docx .txt .md .odt .csv .xls .xlsx .ppt .pptx .rtf .ods .odp',code:'.js .json .html .css .xml .py .java .c .cpp .h .php .yml'};
+const KIND={image:'.png .jpg .jpeg .gif .webp .svg .bmp .ico',video:'.mp4 .webm .mov .mkv',audio:'.mp3 .wav .flac .m4a .aac .ogg',doc:'.pdf .doc .docx .txt .md .odt .csv .xls .xlsx .ppt .pptx .rtf .ods .odp',code:'.js .mjs .cjs .jsx .ts .tsx .json .jsonc .html .htm .vue .css .scss .less .xml .py .rb .java .cs .kt .swift .c .cpp .cc .hpp .h .php .go .rs .sh .bash .zsh .sql .yml .yaml .toml .conf .cfg .env .ini'};
 const icon=i=>{if(i.isDir)return ic(!cx&&shared.has(i.path||join(i.name))?'users':'folder');const e=ext(i.name);return ic(Object.keys(KIND).find(k=>KIND[k].split(' ').includes(e))||'file')};
 
 async function load(){
@@ -59,13 +59,16 @@ function preview(n){const p=join(n),u='/api/preview?path='+encodeURIComponent(p)
   else if('.mp4 .webm .ogg .mov'.includes(e)&&e)h=`<video class="pv" controls src="${u}"></video>`;
   else if('.mp3 .wav .flac .m4a .aac'.includes(e)&&e)h=`<audio controls style="width:100%" src="${u}"></audio>`;
   else if(e==='.pdf'||OFFICE.has(e)){const d=dialog(n,`<div class="vw"><p class="muted">Cargando…</p></div><div class="row" style="margin-top:12px"><a class="btn sm" href="/api/download?path=${encodeURIComponent(p)}${cq()}">${ic('download')} Descargar</a></div>`,null,'','wide');return openViewer($('.vw',d),e,p,cq())}
-  else if(EDIT.has(e))return editor(n);
+  else if(EDIT.has(e))return reader(n);
   else h=`<p class="muted">Sin vista previa para este tipo de archivo.</p>`;
   dialog(n,`<div class="center">${h}</div><div class="row" style="margin-top:12px"><a class="btn sm" href="/api/download?path=${encodeURIComponent(p)}${cq()}">${ic('download')} Descargar</a></div>`,null,'','wide')}
 
-async function editor(n){try{const{content}=await api('/api/file-content?path='+encodeURIComponent(join(n)));
-  dialog((can('write')?'Editar: ':'Ver: ')+n,`<textarea class="code" spellcheck="false"${can('write')?'':' readonly'}>${esc(content)}</textarea>`,can('write')?async d=>{await api('/api/edit',{path:join(n),content:$('textarea',d).value});toast('Guardado');load()}:null,'Guardar','wide')}catch(e){toast(e.message,1)}}
-
+// «Ver»: lector con resaltado de sintaxis, sin campos de texto (en el móvil no sale el teclado). Desde ahí se puede pasar a editar.
+async function reader(n){try{const{content}=await api('/api/file-content?path='+encodeURIComponent(join(n)));
+  CV.read({name:n,content,dl:'/api/download?path='+encodeURIComponent(join(n))+cq(),onEdit:can('write')?()=>editor(n):null})}catch(e){toast(e.message,1)}}
+// «Editar»: editor con resaltado, numeración, sangría automática, Ctrl+S y aviso si hay cambios sin guardar.
+async function editor(n){if(!can('write'))return reader(n);try{const{content}=await api('/api/file-content?path='+encodeURIComponent(join(n)));
+  CV.edit({name:n,content,onSave:async c=>{await api('/api/edit',{path:join(n),content:c});toast('Guardado');load()}})}catch(e){toast(e.message,1)}}
 async function share(n){const d=dialog('Compartir "'+n+'"',`<label>Caducidad<select><option value="1">1 día</option><option value="7" selected>7 días</option><option value="30">30 días</option><option value="0">Sin caducidad</option></select></label><label>Contraseña (opcional)<input class="input" type="password" autocomplete="new-password"></label><p class="muted">Cualquiera con el enlace podrá verlo. Puedes revocarlo en "Enlaces".</p>`,async d=>{
   const r=await api('/api/share',{path:join(n),days:$('select',d).value,password:$('input',d).value});setTimeout(()=>showLink(r.url),50)},'Crear enlace')}
 function showLink(url){dialog('Enlace creado',`<input class="input" readonly value="${esc(url)}">`,async d=>{try{await navigator.clipboard.writeText(url);toast('Copiado')}catch{$('input',d).select();throw Error('Copia el enlace manualmente')}},'Copiar')}
