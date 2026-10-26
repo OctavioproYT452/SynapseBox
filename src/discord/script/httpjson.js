@@ -4,7 +4,7 @@
 //         $jsonArray $jsonArrayAppend $jsonArrayUnshift $jsonArrayPop $jsonArrayShift $jsonArrayCount $jsonArrayIndex
 //         $jsonArrayReverse $jsonArraySort $jsonJoinArray $jsonObjectCount $jsonLength $jsonKeys $jsonType
 //         $jsonArrayUnique $jsonArrayRemove $jsonArraySum
-//         $jsonArrayMax $jsonArrayMin $jsonArrayAverage $jsonArrayInsert $jsonArraySlice $jsonValues $jsonMerge
+//         $jsonArrayRandom $jsonArrayShuffle $jsonArrayFlat $jsonArrayMax $jsonArrayMin $jsonArrayAverage $jsonArrayInsert $jsonArraySlice $jsonValues $jsonMerge
 // Seguridad: solo http/https, nunca hacia redes internas (localhost, 10.x, 192.168.x, 169.254.x…; se comprueba la dirección
 // ya resuelta en el momento de conectar), máximo 5 peticiones por ejecución, 8 s por petición, respuesta de hasta 1 MB y
 // 3 redirecciones. Los datos JSON viven solo durante la ejecución del comando.
@@ -207,6 +207,9 @@ module.exports = function install(F, { S, N, act }) {
     if (!isObj(o) || Array.isArray(o)) throw Error("$jsonMerge necesita un objeto { }"); const r = needRoot(c); if (!isObj(r) || Array.isArray(r)) throw Error("el JSON actual no es un objeto");
     for (const k of Object.keys(o)) if (!BAD_KEYS.has(k)) r[k] = o[k]; limit(c); return "";
   }, { min: 1, q: true });
+  F(CJ, "jsonArrayRandom", "clave;…", "Un elemento al azar de la lista (vacío si está vacía).", (c, a) => { const l = target(c, keyList(a).filter(x => x !== ""), "$jsonArrayRandom"); return l.length ? show(l[require("crypto").randomInt(l.length)]) : ""; }, { min: 1 });
+  F(CJ, "jsonArrayShuffle", "clave;…", "Mezcla el orden de la lista al azar.", (c, a) => { const l = target(c, keyList(a).filter(x => x !== ""), "$jsonArrayShuffle"), { randomInt } = require("crypto"); for (let i = l.length - 1; i > 0; i--) { const k = randomInt(i + 1); [l[i], l[k]] = [l[k], l[i]]; } return ""; }, { min: 1, q: true });
+  F(CJ, "jsonArrayFlat", "clave;…", "Aplana las listas anidadas dentro de la lista (un nivel).", (c, a) => { const l = target(c, keyList(a).filter(x => x !== ""), "$jsonArrayFlat"), out = l.flat(); l.splice(0, l.length, ...out); limit(c); return ""; }, { min: 1, q: true });
   F(CJ, "jsonArraySum", "clave;…", "Suma los números de la lista (ignora lo que no sea número).", (c, a) => +target(c, keyList(a).filter(x => x !== ""), "$jsonArraySum").reduce((s, x) => s + (typeof x === "number" ? x : isNaN(parseFloat(x)) || !isFinite(x) ? 0 : +x), 0).toFixed(6));
   F(CJ, "jsonArrayIndex", "clave;…;valor", "Posición (desde 0) de un valor en la lista, o -1 si no está.", (c, a) => {
     const l = target(c, keyList(a.slice(0, -1)).filter(x => x !== ""), "$jsonArrayIndex"), v = S(a[a.length - 1]);

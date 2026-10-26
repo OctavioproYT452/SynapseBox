@@ -1,25 +1,26 @@
-# Versión 2.15.3
+# Versión 2.16.0
 
-Más funciones para SBScript, renombrado `fc` → `sb` y editor de comandos rediseñado.
+Sandbox de archivos más estricto y más funciones para SBScript.
 
-## Novedades
-- **Nuevas funciones (59):**
-  - JSON: `$jsonArrayCount` ahora, **sin claves, devuelve cuántas listas hay en todo el JSON** cargado con `$jsonParse` (las anidadas también cuentan; con una clave sigue dando los elementos de esa lista), `$jsonObjectCount`, `$jsonLength`, `$jsonKeys`, `$jsonType`, `$jsonArrayUnique`, `$jsonArrayRemove`, `$jsonArraySum`.
-  - Texto: `$removeAccents`, `$between`, `$charAt`, `$wordAt`, `$isEmpty`, `$replaceFirst`, `$base64Encode`, `$base64Decode`, `$urlDecode`.
-  - Matemáticas: `$sqrt`, `$power`, `$mod`, `$isNumber`, `$range`, `$lerp`, `$gcd`, `$lcm`, `$factorial`, `$isPrime`, `$fibonacci`, `$log`, `$sign`, `$trunc`, `$randomFloat`, `$stdDev`, `$toBase`, `$fromBase`, `$roman`, `$ordinal`, `$bytes`.
-  - Más texto: `$left`, `$right`, `$lastIndexOf`, `$containsAny`, `$containsAll`, `$equalsIgnoreCase`, `$camelCase`, `$snakeCase`, `$reverseWords`, `$escapeMarkdown`, `$rot13`, `$countLetters`, `$uuid`.
-  - Tiempo: `$isLeapYear`, `$daysInMonth`.
-  - Más JSON: `$jsonArrayMax`, `$jsonArrayMin`, `$jsonArrayAverage`, `$jsonArrayInsert`, `$jsonArraySlice`, `$jsonValues`, `$jsonMerge`.
-- **Renombrado `fc` → `sb`:** `$isFcAdmin` pasa a `$isSbAdmin`; internamente los botones usan `sbs:`, los modales `sb-…` y los comandos se guardan como `.sbs`. Los nombres antiguos (`$isFcAdmin`, `$fcUser`…, botones `fcs:`, archivos `.fcs`, modales `fc-…`) **siguen funcionando**.
-- **Editor rediseñado:** nuevo estilo (barra lateral, pestaña del comando, panel de propiedades, panel de funciones, panel de problemas/pruebas y barras de desplazamiento), línea actual resaltada, autocompletado que se abre hacia arriba si no cabe, atajos (**Tab / Mayús+Tab**, **Ctrl+/**, **Ctrl+Enter**), sangría automática en `$if`/`$for`/`$while` y barra de símbolos en móvil.
-- **Errores del editor corregidos:** el panel de funciones heredaba márgenes de la wiki; escribir `\[` ya no añade un `]` de más (necesario para JSON); el tamaño y la altura de línea del código eran fijos (ahora son variables y el autocompletado y los saltos a errores se calculan con ellas); el teclado de iOS hacía zoom al escribir; el panel de propiedades ocupaba media pantalla en móvil (ahora empieza plegado).
-- **Wiki y wiki de la IA:** las funciones nuevas llevan ejemplo y la marca «Nuevo»; la IA del editor las conoce automáticamente.
+## Seguridad
+- **Sandbox de usuarios:** `safe()` (la comprobación central de rutas que usan archivos, subidas, compartir, colaboración, papelera, WebDAV y la IA) ahora, además de rechazar `..` y rutas absolutas, **resuelve los enlaces simbólicos en disco** y rechaza cualquier ruta cuyo destino real quede fuera de la carpeta raíz del usuario. También rechaza caracteres de control y rutas de más de 4096 caracteres.
+- **Descomprimir ZIP:** además de lo que ya hacía (rutas con `..`, absolutas, enlaces simbólicos omitidos, bombas de compresión, CRC), ahora rechaza rutas `//`, caracteres de control, más de 64 niveles de carpetas y nombres de más de 255 caracteres, y comprueba en disco que cada carpeta creada sigue dentro del destino.
+- Los nombres de archivo con caracteres de control ya no se aceptan.
+- Probado con enlaces simbólicos hacia fuera, `../`, ZIP con `../../`, rutas absolutas y entradas que son enlaces.
+
+## Nuevas funciones (37)
+- **Formato de Discord:** `$bold`, `$italic`, `$underline`, `$strike`, `$spoiler`, `$quote`, `$inlineCode`, `$codeBlock`, `$hyperlink`, `$stripMarkdown`.
+- **Texto:** `$swapCase`, `$kebabCase`, `$pascalCase`, `$extractNumbers`, `$longestWord`, `$vowelCount`, `$isUrl`, `$isEmail`, `$domain`.
+- **Matemáticas:** `$cbrt`, `$hypot`, `$sin`, `$cos`, `$tan`, `$mode`, `$variance`, `$distance`, `$percentChange`, `$celsiusToFahrenheit`, `$fahrenheitToCelsius`.
+- **Tiempo:** `$timestampCode` (devuelve el código de hora de Discord de ahora, p. ej. `<t:1700000000:R>`, para usarlo donde quieras; a diferencia de `$timestamp`, no pone la fecha en el embed), `$addDays`, `$isWeekend`, `$quarter`.
+- **JSON:** `$jsonArrayRandom`, `$jsonArrayShuffle`, `$jsonArrayFlat`.
+- La wiki (y la wiki de la IA del editor) incluye ejemplo y marca «Nuevo» para cada una.
 
 ## Compatibilidad
-- La carpeta `data/` de este paquete solo lleva `version.json`: no incluye bases de datos, así que copiarlo a tu servidor no sustituye tu `synapsebox.db`.
-- Sin cambios en el servidor, la base de datos ni los plugins. Las cookies (`fc_sid`), claves del navegador y variables de entorno se mantienen para no cerrar sesiones ni romper instalaciones.
+- Sin cambios en la base de datos, los plugins ni los comandos guardados.
+- Si algún día enlazas a mano una carpeta de usuario con un enlace simbólico, el destino debe seguir dentro de esa misma carpeta; los que apuntan fuera dejan de funcionar (es lo que se busca).
+- La carpeta `data/` del paquete solo lleva `version.json`.
 
 ## Archivos modificados
-- `src/discord/script/functions.js`, `src/discord/script/httpjson.js`, `src/discord/script/wiki.js`, `src/discord/custom.js`, `src/discord/index.js`, `src/discord/commands.js`, `src/routes/discord-custom.js`
-- `public/js/dc-editor.js`, `public/dc-editor.css`
+- `src/lib/paths.js`, `src/lib/unzip.js`, `src/discord/script/functions.js`, `src/discord/script/httpjson.js`, `src/discord/script/wiki.js`
 - `README.md`, `RELEASE.md`, `package.json`, `data/version.json`

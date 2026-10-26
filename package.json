@@ -1,6 +1,6 @@
 {
   "name": "synapsebox",
-  "version": "2.15.3",
+  "version": "2.16.0",
   "description": "SynapseBox - gestión de archivos por usuario",
   "main": "server.js",
   "scripts": { "start": "node server.js", "reset-password": "node tools/reset-password.js", "setup-ai": "node tools/setup-ai.js --force" },

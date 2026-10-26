@@ -311,12 +311,49 @@ F(C6, "uuid", "", "Identificador único aleatorio (UUID).", () => crypto.randomU
 
 
 // =================== Tiempo ===================
+// ---- más funciones 2.16.0 ----
+const md = (n, d, w) => F(C6, n, "texto", d, (c, a) => w(S(a[0])), { min: 1 });
+md("bold", "Pone el texto en **negrita** de Discord.", s => "**" + s + "**");
+md("italic", "Pone el texto en *cursiva* de Discord.", s => "*" + s + "*");
+md("underline", "Subraya el texto (Discord).", s => "__" + s + "__");
+md("strike", "Tacha el texto (Discord).", s => "~~" + s + "~~");
+md("spoiler", "Oculta el texto como spoiler (Discord).", s => "||" + s + "||");
+md("quote", "Pone el texto como cita (Discord); respeta los saltos de línea.", s => s.split("\n").map(l => "> " + l).join("\n"));
+md("inlineCode", "Pone el texto como código en línea (Discord).", s => "`" + s.replace(/`/g, "'") + "`");
+F(C6, "codeBlock", "texto;[lenguaje]", "Pone el texto en un bloque de código de Discord, con lenguaje opcional.", (c, a) => "```" + S(a[1]).replace(/[^\w+-]/g, "") + "\n" + S(a[0]).replace(/```/g, "'''") + "\n```", { min: 1 });
+F(C6, "hyperlink", "texto;enlace", "Enlace con texto de Discord (solo http/https).", (c, a) => { const u = S(a[1]).trim(); if (!/^https?:\/\/\S+$/i.test(u)) throw Error("el enlace debe empezar por http:// o https://"); return "[" + S(a[0]).replace(/[\[\]]/g, "") + "](" + u + ")"; }, { min: 2 });
+md("stripMarkdown", "Quita los símbolos de formato de Discord (* _ ~ ` | >).", s => s.replace(/[*_~`|]/g, "").replace(/^> ?/gm, ""));
+md("swapCase", "Cambia mayúsculas por minúsculas y al revés.", s => [...s].map(ch => ch === ch.toUpperCase() ? ch.toLowerCase() : ch.toUpperCase()).join(""));
+md("kebabCase", "Convierte a kebab-case. Ej.: «Hola Mundo» → hola-mundo.", s => noAcc(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""));
+md("pascalCase", "Convierte a PascalCase. Ej.: «hola mundo» → HolaMundo.", s => noAcc(s).toLowerCase().replace(/(^|[^a-z0-9]+)([a-z0-9])/g, (m, x, ch) => ch.toUpperCase()).replace(/[^a-zA-Z0-9]/g, ""));
+md("extractNumbers", "Los números que aparecen en el texto, separados por coma.", s => (s.match(/-?\d+(?:[.,]\d+)?/g) || []).join(", "));
+md("longestWord", "La palabra más larga del texto.", s => s.split(/\s+/).filter(Boolean).reduce((m, w) => w.length > m.length ? w : m, ""));
+md("vowelCount", "Cuántas vocales tiene el texto (con o sin tilde).", s => (noAcc(s).match(/[aeiou]/gi) || []).length);
+md("isUrl", "true si el texto es un enlace http/https válido.", s => /^https?:\/\/[^\s/$.?#][^\s]*$/i.test(s.trim()));
+md("isEmail", "true si el texto parece un correo electrónico.", s => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s.trim()));
+md("domain", "El dominio de un enlace (vacío si no es válido).", s => { try { return new URL(s.trim()).hostname; } catch { return ""; } });
+F(C5, "cbrt", "número", "Raíz cúbica.", (c, a) => +Math.cbrt(N(a[0])).toFixed(10), { min: 1 });
+F(C5, "hypot", "a;b;…", "Hipotenusa: raíz de la suma de cuadrados.", (c, a) => +Math.hypot(...nums(a)).toFixed(10), { min: 2 });
+F(C5, "sin", "grados", "Seno de un ángulo en grados.", (c, a) => +Math.sin(N(a[0]) * Math.PI / 180).toFixed(10), { min: 1 });
+F(C5, "cos", "grados", "Coseno de un ángulo en grados.", (c, a) => +Math.cos(N(a[0]) * Math.PI / 180).toFixed(10), { min: 1 });
+F(C5, "tan", "grados", "Tangente de un ángulo en grados.", (c, a) => { const r = Math.tan(N(a[0]) * Math.PI / 180); return Math.abs(r) > 1e12 ? "infinito" : +r.toFixed(10); }, { min: 1 });
+F(C5, "mode", "a;b;…", "El valor que más se repite (el primero si hay empate).", (c, a) => { const m = new Map(); let best = a[0], n = 0; for (const x of a.map(S)) { const k = (m.get(x) || 0) + 1; m.set(x, k); if (k > n) { n = k; best = x; } } return best; }, { min: 1 });
+F(C5, "variance", "a;b;…", "Varianza (poblacional) de varios números.", (c, a) => { const v = nums(a), m = v.reduce((s, x) => s + x, 0) / v.length; return +(v.reduce((s, x) => s + (x - m) ** 2, 0) / v.length).toFixed(6); }, { min: 1 });
+F(C5, "distance", "x1;y1;x2;y2", "Distancia entre dos puntos.", (c, a) => +Math.hypot(N(a[2]) - N(a[0]), N(a[3]) - N(a[1])).toFixed(6), { min: 4 });
+F(C5, "percentChange", "antes;después", "Variación porcentual entre dos valores. Ej.: $percentChange[50;75] → 50.", (c, a) => { const x = N(a[0]); if (!x) throw Error("el valor inicial no puede ser 0"); return +((N(a[1]) - x) / Math.abs(x) * 100).toFixed(4); }, { min: 2 });
+F(C5, "celsiusToFahrenheit", "grados", "De °C a °F.", (c, a) => +(N(a[0]) * 9 / 5 + 32).toFixed(4), { min: 1 });
+F(C5, "fahrenheitToCelsius", "grados", "De °F a °C.", (c, a) => +((N(a[0]) - 32) * 5 / 9).toFixed(4), { min: 1 });
+
 const C7 = "Tiempo";
+F(C7, "addDays", "unix;días", "Suma (o resta, con negativo) días a una fecha en segundos Unix. Devuelve segundos Unix.", (c, a) => Math.round(N(a[0])) + Math.round(N(a[1])) * 86400, { min: 2 });
+F(C7, "isWeekend", "[unix]", "true si la fecha (UTC; ahora por defecto) cae en sábado o domingo.", (c, a) => { const d = new Date((a[0] === undefined || a[0] === "" ? Date.now() / 1000 : N(a[0])) * 1000).getUTCDay(); return d === 0 || d === 6; });
+F(C7, "quarter", "[mes]", "Trimestre del año (1 a 4) de un mes (el actual por defecto).", (c, a) => { const m = Math.round(N(a[0], new Date().getUTCMonth() + 1)); if (m < 1 || m > 12) throw Error("el mes debe estar entre 1 y 12"); return Math.ceil(m / 3); });
 F(C7, "isLeapYear", "[año]", "true si el año es bisiesto (el actual por defecto).", (c, a) => { const y = Math.round(N(a[0], new Date().getUTCFullYear())); return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0; });
 F(C7, "daysInMonth", "[mes];[año]", "Cuántos días tiene un mes (1 a 12; el actual por defecto).", (c, a) => { const d = new Date(); const m = Math.round(N(a[0], d.getUTCMonth() + 1)), y = Math.round(N(a[1], d.getUTCFullYear())); if (m < 1 || m > 12) throw Error("el mes debe estar entre 1 y 12"); return new Date(Date.UTC(y, m, 0)).getUTCDate(); });
 F(C7, "unix", "", "Segundos desde 1970 (ahora).", () => Math.floor(Date.now() / 1000));
 F(C7, "date", "[formato];[unix]", "Fecha y hora. Formato con YYYY MM DD HH mm ss (por defecto DD/MM/YYYY HH:mm).", (c, a) => dateFmt(S(a[0], "DD/MM/YYYY HH:mm"), a[1] ? new Date(N(a[1]) * 1000) : new Date()));
 F(C7, "discordTime", "unix;[estilo]", "Hora que Discord muestra en la zona de cada persona (estilo: t T d D f F R).", (c, a) => `<t:${Math.floor(N(a[0]))}:${/^[tTdDfFR]$/.test(S(a[1])) ? a[1] : "f"}>`, { min: 1 });
+F(C7, "timestampCode", "[estilo];[unix]", "Devuelve el código de hora de Discord de AHORA (o del unix indicado), sin tocar el embed: <t:1700000000:R>. Estilos: t T d D f F R (f por defecto). Úsalo en descripciones, campos o mensajes.", (c, a) => `<t:${a[1] === undefined || a[1] === "" ? Math.floor(Date.now() / 1000) : Math.floor(N(a[1]))}:${/^[tTdDfFR]$/.test(S(a[0])) ? S(a[0]) : "f"}>`);
 F(C7, "duration", "segundos", "Convierte segundos en «1 d 2 h 3 min».", (c, a) => human(N(a[0])), { min: 1 });
 F(C7, "uptime", "", "Tiempo que lleva encendido el servidor.", () => human(process.uptime()));
 
