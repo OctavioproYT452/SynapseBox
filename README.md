@@ -812,3 +812,4 @@ Los enlaces antiguos (`/share/usuario/ruta` y `/files/...`) dejan de funcionar p
 ## Licencia
 
 Distribuido bajo la licencia [MIT](LICENSE).
+
