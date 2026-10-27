@@ -54,6 +54,7 @@ function makeApi(m, dir, router) {
     serveDir: (urlPath, sub = ".") => router.use(urlPath, express.static(inside(dir, sub))),
     on: (ev, fn) => { (listeners[ev] ||= []).push({ id: m.id, fn }); },
     emit,
+    adminOnly: (req, res, next) => req.user?.is_admin ? next() : res.status(403).json({ error: "Solo administradores" }), // middleware: solo admins
     db: require("../db"), config: require("../config"), settings: require("../lib/settings"), utils: require("../lib/utils"),
     core: p => require(path.join(__dirname, "..", p)),     // acceso a cualquier módulo interno: api.core("services/auth")
     data: {                                               // almacenamiento JSON propio del plugin

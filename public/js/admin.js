@@ -4,7 +4,7 @@ const head=(t,d,act='')=>`<div class="shead"><div><h3>${t}</h3>${d?`<p class="mu
 const fld=(l,hint,inner)=>`<label class="fld"><span>${l}</span>${inner}${hint?`<small>${hint}</small>`:''}</label>`;
 const chk=(id,l,hint,on)=>`<label class="chk"><input type="checkbox" id="${id}" ${on?'checked':''}><span><b>${l}</b>${hint?`<small>${hint}</small>`:''}</span></label>`;
 $$('.tab').forEach(b=>b.onclick=()=>{tab=b.dataset.t;$$('.tab').forEach(x=>x.classList.toggle('on',x===b));$$('main section').forEach(s=>s.hidden=s.id!==tab);show()});
-function show(){clearInterval(timer);({dash:()=>{dash();timer=setInterval(dash,5000)},users,links,ai:aiAdmin,dc:discordAdmin,plug:plugins,set:settings})[tab]()}
+function show(){clearInterval(timer);({dash:()=>{dash();timer=setInterval(dash,5000)},users,links,ai:aiAdmin,dc:discordAdmin,plug:plugins,ext:extensions,set:settings})[tab]()}
 
 async function dash(){try{const s=await api('/api/admin/server'),c=s.cpu,m=s.memUsed/s.memTotal*100,d=s.diskUsed/s.diskTotal*100;
  $('#dash').innerHTML=head('Resumen del servidor','Estado actual de tu instalación de SynapseBox.')+`<div class="stats">${[['users','Usuarios',s.users],['folder','Almacenado',fmt(s.stored)],['link','Enlaces activos',s.shares],['shield','Sesiones activas',s.sessions],['info','Versión',s.version]].map(([i,l,v])=>`<div class="card stat"><span class="mic">${ic(i)}</span><div><small>${l}</small><b>${v}</b></div></div>`).join('')}</div>
@@ -76,6 +76,18 @@ api('/api/session').then(s=>{if(!s.logged||!s.admin)location.href='/';else{show(
 
 /* ---------- Plugins ---------- */
 let plugView='mine';
+// Extensiones: cada plugin activo puede registrar aquí su propia sección de configuración con SynapseBox.admin({...}).
+let extSel=null;
+function extensions(){
+ const sec=$('#ext'),L=(window.SynapseBox&&SynapseBox.adminSections)||[];
+ if(!L.length){sec.innerHTML=head('Extensiones','Configuración de los plugins activos.')+'<div class="card"><div class="empty"><b>Ningún plugin activo tiene configuración</b><p class="muted">Activa alguno en la pestaña «Plugins».</p></div></div>';return}
+ if(!L.some(x=>x.id===extSel))extSel=(L[0]||{}).id;
+ const cur=L.find(x=>x.id===extSel);
+ sec.innerHTML=head('Extensiones','Configuración de los plugins activos.')+`<div class="tabs" id="extbar">${L.map(x=>`<button class="tab ${x.id===extSel?'on':''}" data-x="${esc(x.id)}">${esc(x.title)}</button>`).join('')}</div><div id="extbody"></div>`;
+ $$('[data-x]',sec).forEach(b=>b.onclick=()=>{extSel=b.dataset.x;extensions()});
+ const el=$('#extbody');el.innerHTML='<p class="muted">Cargando…</p>';
+ Promise.resolve().then(()=>cur.render(el,{head,fld,chk,esc,toast,api,dialog,yes,ic,fmt,$,$$})).catch(e=>{el.innerHTML='<div class="card"><b>Error en el plugin</b><p class="muted">'+esc(e.message)+'</p></div>'});
+}
 async function plugins(){
  const sec=$('#plug');
  sec.innerHTML=head('Plugins','Amplía SynapseBox: un plugin puede cambiar iconos, imágenes, funciones y comportamiento.',`<div class="row"><button class="btn ghost ${plugView==='mine'?'on':''}" data-v="mine">Instalados</button><button class="btn ghost ${plugView==='market'?'on':''}" data-v="market">Repositorio</button><button class="btn ghost ${plugView==='up'?'on':''}" data-v="up">${ic('upload')} Subir plugin</button></div>`)+'<div id="pbody"><p class="muted">Cargando…</p></div>';
@@ -85,7 +97,7 @@ async function plugins(){
 async function plugMine(){
  const {plugins:ps}=await api('/api/admin/plugins');
  $('#pbody').innerHTML=`<div class="card" style="border-color:var(--warn)"><small>Los plugins se ejecutan con acceso total al servidor. Activa solo los que vengan de fuentes de confianza.</small></div>`+(ps.length?`<div class="card scroll"><table class="tbl rt roomy"><thead><tr><th>Plugin</th><th>Versión</th><th>Activo</th><th></th></tr></thead><tbody>${ps.map(p=>`<tr><td data-l="Plugin"><b>${esc(p.title||p.id)}</b><br><small class="muted">${esc(p.description||'')}</small></td><td data-l="Versión">${esc(p.version||'')}</td><td data-l="Activo"><label class="chk"><input type="checkbox" data-id="${esc(p.id)}" ${p.enabled?'checked':''}><span>${p.enabled?'Activado':'Desactivado'}</span></label></td><td data-l=""><div class="row end"><button class="btn sm ghost dng" data-del="${esc(p.id)}" aria-label="Desinstalar">${ic('trash')}</button></div></td></tr>`).join('')}</tbody></table></div>`:`<div class="card"><div class="empty"><b>No hay plugins instalados</b><p class="muted">Descarga alguno desde la pestaña «Repositorio».</p></div></div>`);
- $$('[data-id]').forEach(c=>c.onchange=async()=>{try{await api(`/api/admin/plugins/${c.dataset.id}/toggle`,{enabled:c.checked});toast(c.checked?'Plugin activado':'Plugin desactivado');plugMine()}catch(e){toast(e.message,1);c.checked=!c.checked}});
+ $$('[data-id]').forEach(c=>c.onchange=async()=>{try{await api(`/api/admin/plugins/${c.dataset.id}/toggle`,{enabled:c.checked});toast(c.checked?'Plugin activado. Recarga la página para ver su configuración en «Extensiones».':'Plugin desactivado');plugMine()}catch(e){toast(e.message,1);c.checked=!c.checked}});
  $$('[data-del]').forEach(b=>b.onclick=async()=>{if(await yes('Desinstalar plugin','Se borrarán sus archivos de este servidor.')){try{await api('/api/admin/plugins/'+b.dataset.del,null,'DELETE');plugMine()}catch(e){toast(e.message,1)}}});
 }
 async function plugMarket(){
