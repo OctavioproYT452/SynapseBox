@@ -7,14 +7,14 @@ const card=(t,sub,inner)=>`<div class="dp-card">${t?`<h3>${t}</h3>`:''}${sub?`<p
 const LS=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch{return null}};
 const nav=$('#dpnav'),body=$('#dpbody'),gbar=$('#dpguild');
 let S=null,sec=(location.hash||'#estado').slice(1),gid=LS('dcpGuild');
-const SECS=[['estado','🏠','Estado'],['actividad','📡','Actividad'],['tickets','🎫','Tickets'],['bienvenidas','👋','Bienvenidas'],['comandos','⚡','Comandos propios']];
+const SECS=[['estado',ic('home'),'Estado'],['actividad',ic('radio'),'Actividad'],['tickets',ic('ticket'),'Tickets'],['bienvenidas',ic('hand'),'Bienvenidas'],['comandos',ic('zap'),'Comandos propios']];
 const needsGuild=s=>s==='tickets'||s==='bienvenidas';
 const guild=()=>S.guilds.find(g=>g.id===gid)||S.guilds[0];
 const wait=async f=>{try{await f()}catch(e){toast(e.message,1)}};
 
 function buildNav(){
   const open=S.guilds.reduce((n,g)=>n+(g.tickets?.open?.length||0),0);
-  nav.innerHTML=SECS.map(([k,e,t])=>`<button data-s="${k}" class="${k===sec?'on':''}"><span class="dp-e">${e}</span>${t}${k==='tickets'&&open?`<small>${open}</small>`:''}</button>`).join('')+'<hr><button data-go="/admin/discord.html"><span class="dp-e">✏️</span>Editor de comandos</button><button data-go="/admin/discord-wiki.html"><span class="dp-e">📖</span>Wiki de SBScript</button>';
+  nav.innerHTML=SECS.map(([k,e,t])=>`<button data-s="${k}" class="${k===sec?'on':''}"><span class="dp-e">${e}</span>${t}${k==='tickets'&&open?`<small>${open}</small>`:''}</button>`).join('')+'<hr><button data-go="/admin/discord.html"><span class="dp-e">'+ic('edit')+'</span>Editor de comandos</button><button data-go="/admin/discord-wiki.html"><span class="dp-e">'+ic('book')+'</span>Wiki de SBScript</button>';
 }
 function buildGuild(){
   const show=needsGuild(sec)&&S.guilds.length>1;gbar.hidden=!show;if(!show)return;
@@ -36,8 +36,8 @@ function estado(){
    `<div class="dp-hero"><span class="dp-dot ${dot}"></span><div><h2>${s.ready?'Conectado como '+esc(s.tag||''):s.error?'Error de conexión':s.configured?'Conectando…':'Sin token'}</h2><small>${s.ready?'El bot está funcionando.':s.configured?'Espera unos segundos y recarga.':'Añade DISCORD_TOKEN al archivo .env.'}</small></div><span class="dp-sp" style="flex:1"></span>${s.invite?`<a class="btn ghost" href="${esc(s.invite)}" target="_blank" rel="noopener noreferrer">${ic('link')} Invitar a un servidor</a>`:''}${s.ready?`<button class="btn ghost" id="dptest">${ic('send')} Mensaje de prueba</button>`:''}</div>`+
    (!s.configured||s.error?card('Cómo activarlo','',setup):
    `<div class="dp-stats"><div class="dp-stat"><b>${s.guilds.length}</b><span>Servidores del bot</span></div><div class="dp-stat"><b>${s.linked}</b><span>Cuentas vinculadas</span></div><div class="dp-stat"><b>${tickets}</b><span>Tickets abiertos</span></div></div>`+
-   warns.map(w=>`<div class="dp-warn">⚠️ ${w}</div>`).join('')+
-   `<div class="dp-links">${[['actividad','📡','Actividad','Canales de registro y avisos de actualización'],['tickets','🎫','Tickets','Soporte con botón, rol que reclama y cierra'],['bienvenidas','👋','Bienvenidas','Mensaje y rol automático para quien entra'],['comandos','⚡','Comandos propios','SBScript, botones, captcha e IA']].map(([k,e,t,d])=>`<button class="dp-link" data-s="${k}"><span>${e}</span><b>${t}</b><small>${d}</small></button>`).join('')}</div>`);
+   warns.map(w=>`<div class="dp-warn">${ic('alert')} ${w}</div>`).join('')+
+   `<div class="dp-links">${[['actividad',ic('radio'),'Actividad','Canales de registro y avisos de actualización'],['tickets',ic('ticket'),'Tickets','Soporte con botón, rol que reclama y cierra'],['bienvenidas',ic('hand'),'Bienvenidas','Mensaje y rol automático para quien entra'],['comandos',ic('zap'),'Comandos propios','SBScript, botones, captcha e IA']].map(([k,e,t,d])=>`<button class="dp-link" data-s="${k}"><span>${e}</span><b>${t}</b><small>${d}</small></button>`).join('')}</div>`);
 }
 
 // ---------- Actividad ----------
@@ -58,7 +58,7 @@ function tickets(){
   const g=guild(),t=g.tickets||{open:[]},id=g.id;
   const sel=(i,list,cur,none)=>`<select class="input" id="${i}"><option value="">${none}</option>${list.map(x=>`<option value="${esc(x.id)}"${x.id===cur?' selected':''}>${esc(x.name)}</option>`).join('')}</select>`;
   return hd('Tickets de soporte','Un botón abre un canal privado. Quien abre el ticket solo puede escribir; el rol de soporte puede reclamarlo y cerrarlo. También con <code>/tickets</code>.',t.configured?`<span class="badge pub">${t.open.length} abierto(s) · ${t.counter} creados</span>`:'<span class="badge">Sin configurar</span>')+
-   (t.problem?`<div class="dp-warn">⚠️ ${esc(t.problem)}</div>`:'')+(t.configured&&!t.role_ok?'<div class="dp-warn">⚠️ El rol de soporte ya no existe: elige otro y guarda.</div>':'')+
+   (t.problem?`<div class="dp-warn">${ic('alert')} ${esc(t.problem)}</div>`:'')+(t.configured&&!t.role_ok?'<div class="dp-warn">'+ic('alert')+' El rol de soporte ya no existe: elige otro y guarda.</div>':'')+
    `<div class="dp-grid">`+
    card('Configuración','El rol del bot debe estar por encima del rol de soporte. Quien reclama un ticket es el único del rol que puede escribir en él.',
      fld('Rol de soporte','Ve, reclama y cierra los tickets.',sel('tkr',g.all_roles,t.role_id,'— Elige un rol —'))+fld('Categoría','Opcional: dónde se crean los canales.',sel('tkc',g.categories,t.category_id,'— Sin categoría —'))+fld('Canal de transcripciones','Opcional: al cerrar se envía aquí la transcripción.',sel('tkl',g.channels,t.log_id,'— Sin transcripciones —'))+fld('Tickets abiertos a la vez por persona','',`<input class="input" id="tkm" type="number" min="1" max="5" value="${t.max_open||1}">`)+
@@ -76,7 +76,7 @@ function bienvenidas(){
   const g=guild(),w=g.welcome,id=g.id;
   const vars=S.welcome_vars.map(([k,d])=>`<button type="button" class="btn ghost sm" data-ins="${esc(k)}" title="${esc(d)}">${esc(k)}</button>`).join('');
   return hd('Bienvenidas','Mensaje que se envía cuando alguien entra al servidor. También con <code>/bienvenida</code>.')+
-   (S.members_intent?'':'<div class="dp-warn">⚠️ Falta <b>Server Members Intent</b> (Developer Portal → Bot → Privileged Gateway Intents). Puedes preparar el mensaje, pero no se enviará hasta activarlo y reiniciar.</div>')+
+   (S.members_intent?'':'<div class="dp-warn">'+ic('alert')+' Falta <b>Server Members Intent</b> (Developer Portal → Bot → Privileged Gateway Intents). Puedes preparar el mensaje, pero no se enviará hasta activarlo y reiniciar.</div>')+
    `<div class="dp-grid">`+
    card('Ajustes','',chk('wen','Dar la bienvenida a los miembros nuevos','',w.enabled)+fld('Canal','',`<select class="input" id="wch"><option value="">— Sin canal —</option>${g.channels.map(c=>`<option value="${esc(c.id)}"${c.id===w.channel_id?' selected':''}>#${esc(c.name)}</option>`).join('')}</select>`)+fld('Rol automático',g.can_roles?'Solo salen roles que el bot puede dar (por debajo del suyo).':'El bot no tiene «Gestionar roles» en este servidor.',`<select class="input" id="wro"><option value="">— Ninguno —</option>${g.roles.map(r=>`<option value="${esc(r.id)}"${r.id===w.role_id?' selected':''}>${esc(r.name)}</option>`).join('')}</select>`)+chk('wem','Enviar como tarjeta','Si lo desmarcas se envía como texto normal.',w.embed))+
    card('Mensaje','Pulsa un código para insertarlo donde tengas el cursor.',fld('Título','Opcional.',`<input class="input" id="wti" maxlength="${S.welcome_limits.title}" value="${esc(w.title)}">`)+fld('Texto','',`<textarea class="input" id="wms" rows="5" maxlength="${S.welcome_limits.message}">${esc(w.message)}</textarea>`)+`<div class="dp-vars">${vars}</div><div class="muted"><small>Así se vería:</small></div><div class="dp-prev"><b class="t" id="wpt"></b><div id="wpm"></div></div><div class="dp-row"><button class="btn" id="wsave">Guardar</button><button class="btn ghost" id="wtest">${ic('send')} Guardar y enviar prueba</button></div>`)+
@@ -86,7 +86,7 @@ function bienvenidas(){
 // ---------- Comandos ----------
 function comandos(){
   return hd('Comandos propios','Crea tus comandos con SBScript, un lenguaje sencillo parecido a BDScript. Prefijo actual: <b>'+esc(S.prefix||'!')+'</b>')+
-   `<div class="dp-links">${[['/admin/discord.html','✏️','Abrir el editor','Carpetas, resaltado, pruebas y creación con IA (✨)'],['/admin/discord-wiki.html','📖','Wiki de SBScript','Guías, recetas y todas las funciones']].map(([h,e,t,d])=>`<button class="dp-link" data-go="${h}"><span>${e}</span><b>${t}</b><small>${d}</small></button>`).join('')}</div>`+
+   `<div class="dp-links">${[['/admin/discord.html',ic('edit'),'Abrir el editor','Carpetas, resaltado, pruebas y creación con IA ('+ic('bot')+')'],['/admin/discord-wiki.html',ic('book'),'Wiki de SBScript','Guías, recetas y todas las funciones']].map(([h,e,t,d])=>`<button class="dp-link" data-go="${h}"><span>${e}</span><b>${t}</b><small>${d}</small></button>`).join('')}</div>`+
    `<div class="dp-grid" style="margin-top:16px">${card('Tipos de comando','',`<ul class="muted" style="margin:0;padding-left:18px;line-height:1.8"><li><b>Slash</b> (/comando) con opciones</li><li><b>Prefijo</b> (${esc(S.prefix||'!')}comando)</li><li><b>Mensaje</b>: responde a un texto</li><li><b>Botón</b>: se ejecuta al pulsar un botón</li></ul>`)}${card('Ya incluido en el bot','',`<ul class="muted" style="margin:0;padding-left:18px;line-height:1.8"><li>Sistema de <b>tickets</b> con botón</li><li>Vinculación de cuentas, archivos, enlaces y /ia</li><li>Bienvenidas y registro de actividad</li></ul>`)}</div>`;
 }
 

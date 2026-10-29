@@ -27,5 +27,5 @@ async function aiSend(){const i=$('#aiIn'),t=i.value.trim();if(!t||aiBusy)return
   const w=aiMsg('bot','Pensando…');w.classList.add('wait');$('#aiForm button').disabled=true;
   try{const r=await api('/api/ai/chat',{messages:aiHist});w.remove();aiHist.push({role:'assistant',content:r.reply});aiMsg('bot',r.reply,r.actions);aiUsage(r.usage);
     if(r.actions.some(a=>a.ok&&a.mutates))load()}
-  catch(e){w.remove();aiHist.pop();aiMsg('bot','⚠ '+e.message);aiStatus()}
+  catch(e){w.remove();aiHist.pop();aiMsg('bot',e.message);aiStatus()}
   aiBusy=false;$('#aiForm button').disabled=false;i.focus()}

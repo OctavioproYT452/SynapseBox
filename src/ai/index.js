@@ -4,10 +4,10 @@
 //   No existe ninguna herramienta para ejecutar nada: los archivos que crea son datos (modo 0644, nunca ejecutables).
 const { reload, enabled, describe, save, publicConfig } = require("./config");
 const { status, usedBy, limitFor, purge } = require("./limits");
-const { test } = require("./llm");
+const { test, llmStream } = require("./llm");
 const { chat } = require("./chat");
-const { ask, session } = require("./ask");
+const { ask, session, begin } = require("./ask");
 const { IMPL } = require("./tools");
 const { PROVIDERS, CLOUD, DEF } = require("./constants");
 
-module.exports = { init: reload, reload, enabled, describe, save, publicConfig, test, chat, ask, session, status, usedBy, limitFor, purge, PROVIDERS, CLOUD, DEF, _impl: IMPL };
+module.exports = { init: reload, reload, enabled, describe, save, publicConfig, test, llmStream, getConfig: require("./config").getConfig, chat, ask, session, begin, status, usedBy, limitFor, purge, PROVIDERS, CLOUD, DEF, _impl: IMPL };

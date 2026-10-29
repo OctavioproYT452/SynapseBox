@@ -42,17 +42,21 @@ async function ask({ u = null, did = "0", system = "", prompt, free = false }) {
 // Sesión larga (varios mensajes, prompt grande, sin recortar la respuesta). Cuenta UN uso del usuario de SynapseBox aunque haya reintentos.
 // La usa el generador de comandos de SBScript. Devuelve una función chat(messages) que devuelve el texto de la IA.
 const busyGen = new Set();
-async function session(u, fn) {
+// Abre un uso del límite del usuario (una petición a la vez). Devuelve { answered(), end(failed) }: si el proveedor falla antes de responder, el uso se devuelve.
+function begin(u) {
   if (!enabled()) throw Error("la IA no está configurada en este servidor");
   const st = status(u);
   if (st.limit === 0) throw Error("tu cuenta no puede usar la IA");
   if (st.limit > 0 && st.used >= st.limit) throw Error(`has llegado a tu límite de IA (${st.limit} por ${st.period === "day" ? "día" : "hora"})`);
   if (busyGen.has(u.id)) throw Error("espera a que termine tu petición anterior");
-  busyGen.add(u.id); const ins = run("INSERT INTO ai_usage VALUES(?,?)", u.id, now()); let answered = false;
-  try {
-    return await fn(async messages => { const m = await llm(getConfig(), messages, null, 150000); answered = true; return String(m.content || ""); });
-  } catch (e) { if (!answered) run("DELETE FROM ai_usage WHERE rowid=?", ins.lastInsertRowid); if (e.provider) console.error("[IA]", e.message, "-", e.detail); throw e; }
-  finally { busyGen.delete(u.id); }
+  busyGen.add(u.id); const ins = run("INSERT INTO ai_usage VALUES(?,?)", u.id, now()); let ok = false;
+  return { answered: () => { ok = true; }, end: failed => { if (failed && !ok) run("DELETE FROM ai_usage WHERE rowid=?", ins.lastInsertRowid); busyGen.delete(u.id); } };
+}
+async function session(u, fn) {
+  const g = begin(u);
+  try { return await fn(async messages => { const m = await llm(getConfig(), messages, null, 150000); g.answered(); return String(m.content || ""); }); }
+  catch (e) { if (e.provider) console.error("[IA]", e.message, "-", e.detail); g.end(true); throw e; }
+  finally { g.end(false); }
 }
 
-module.exports = { ask, session };
+module.exports = { ask, session, begin };

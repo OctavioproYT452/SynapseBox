@@ -15,11 +15,7 @@ function knowledge() {
   const funcs = Object.entries(by).map(([c, l]) => `### ${c}\n` + l.map(d => { const ex = wiki.EXAMPLES[d.n]; return `$${d.n}${d.a ? "[" + d.a + "]" : ""} — ${d.d}` + (ex ? `\n   ej: ${ex[0].replace(/\n/g, " ⏎ ")}${ex[1] ? "  (" + ex[1] + ")" : ""}` : ""); }).join("\n")).join("\n\n");
   return (KNOW = { guides, funcs });
 }
-const SYSTEM = () => {
-  const k = knowledge();
-  return `Eres un experto en SBScript, el lenguaje de comandos propios del bot de Discord de SynapseBox. Tu trabajo: convertir lo que pide el administrador en UN comando SBScript correcto.
-
-Reglas estrictas:
+const RULES = `Reglas estrictas:
 - Usa SOLO funciones que existan en la REFERENCIA de abajo, con sus argumentos tal como están indicados ([x] = opcional). No inventes funciones ni sintaxis de otros lenguajes. Los nombres no distinguen mayúsculas.
 - Los argumentos se separan con ; y se pueden anidar funciones. Escapes: \\$ \; \\[ \\] \\\\. Comentarios: líneas que empiezan por //.
 - Los bloques son $if/$elseif/$else/$endif, $for/$endfor y $while/$endwhile. Condiciones con == != > < >= <= ~= && ||.
@@ -30,7 +26,12 @@ Reglas estrictas:
 - Para elegir entre textos sin bloques usa $ternary[cond;sí;no], $switch[valor;caso;resultado;…;porDefecto] o $coalesce; para duraciones escritas («2h30m») usa $parseDuration y $addTime; para unidades usa $convertUnit; para dados de rol $rollDice[2d6+3]; para fechas de creación de IDs de Discord $snowflakeTime. Prefiere estas funciones a escribir bloques $if largos.
 - Si lo pedido necesita algo que SBScript no puede hacer, haz lo más cercano posible y explícalo en NOTAS. No prometas funciones inexistentes.
 - Usa $cooldown en comandos que puedan abusarse, $onlyIf para validar entradas y los permisos adecuados en moderación. Si usas IA ($ai…), compruébalo con $aiAvailable cuando tenga sentido.
-- Si te dan un comando existente para modificar, devuelve el comando COMPLETO ya modificado.
+- Si te dan un comando existente para modificar, devuelve el comando COMPLETO ya modificado.`;
+const SYSTEM = () => {
+  const k = knowledge();
+  return `Eres un experto en SBScript, el lenguaje de comandos propios del bot de Discord de SynapseBox. Tu trabajo: convertir lo que pide el administrador en UN comando SBScript correcto.
+
+${RULES}
 
 FORMATO DE RESPUESTA (exacto, sin bloques de código markdown, sin nada antes ni después):
 ===META===
@@ -84,4 +85,4 @@ async function generate(user, { instructions, current = null, tipo = "" }) {
   });
 }
 
-module.exports = { generate, SYSTEM, parse };
+module.exports = { generate, SYSTEM, parse, RULES, flat, knowledge };

@@ -128,3 +128,5 @@ body[data-page=dcwiki]{overflow:auto;scroll-behavior:smooth}
 .dc-fnp{z-index:56}.dc-scrim.dc-open{z-index:55}
 .dc-emb img.dc-ico{width:18px;height:18px;border-radius:50%;margin:0 6px -4px 0;display:inline-block}.dc-emb img.dc-thumb{float:right;width:64px;height:64px;object-fit:cover;margin:0 0 6px 10px}
 .dc-brow{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.dc-bt{padding:5px 14px;border-radius:4px;background:#4f545c;color:#fff;font:600 13px system-ui,sans-serif}.dc-bt.s1{background:#5865f2}.dc-bt.s3{background:#248046}.dc-bt.s4{background:#da373c}.dc-bt.s5{background:#4f545c}
+
+.dc-sc span .i,.dc-num .i{color:var(--accent)}.dc-tip>.i{flex:none;color:var(--warn)}.dc-newbox .i{color:var(--accent)}

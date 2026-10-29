@@ -11,7 +11,7 @@ Sube, organiza, edita y comparte archivos desde cualquier dispositivo, con usuar
 
 </div>
 
-> **Versión 2.16.5.** Qué ha cambiado en esta versión: consulta [RELEASE.md](RELEASE.md).
+> **Versión 2.17.0.** Qué ha cambiado en esta versión: consulta [RELEASE.md](RELEASE.md).
 
 ---
 
@@ -354,7 +354,7 @@ Disponible en `/admin/` solo para administradores. Usa el mismo menú de usuario
 - La versión instalada está en `data/version.json`:
 
   ```json
-  { "version": "2.16.5" }
+  { "version": "2.17.0" }
   ```
 
 - Cada 2 minutos el servidor lee ese archivo local y lo compara con el `data/version.json` publicado en GitHub. Si el de GitHub es más nuevo (se comparan los números: `2.10` es mayor que `2.9`), los **administradores** ven un aviso de nueva versión con instrucciones para actualizar.
@@ -498,7 +498,7 @@ $footer[Tu espacio: $sbSpace de $sbQuota]
 - **JSON:** `$jsonParse`, `$json[clave;…]`, `$jsonSet`, `$jsonSetString`, `$jsonUnset`, `$jsonClear`, `$jsonExists`, `$jsonStringify`, `$jsonPretty`, `$jsonArray`, `$jsonArrayAppend`, `$jsonArrayUnshift`, `$jsonArrayPop`, `$jsonArrayShift`, `$jsonArrayCount`, `$jsonArrayIndex`, `$jsonArrayReverse`, `$jsonArraySort` y `$jsonJoinArray`. Las listas empiezan en la posición 0 y los corchetes de un JSON escrito a mano se escapan como `\[` y `\]`.
 - Ejemplo: `$httpGet[https://api.example.com/usuario/1;No pude consultar la API.]` + `$jsonParse[$httpResult]` + `$title[$json[name]]`.
 
-**Programar con IA (2.10.11):** en el editor, el botón **✨ IA** recibe una descripción («un comando que…»), la IA lee **toda la wiki** (guías, recetas y las 370 funciones con ejemplo), escribe el comando, lo pasa por el analizador y se corrige sola si hay errores (hasta 2 reintentos). Nunca guarda nada: el resultado aparece en el editor para revisarlo, probarlo y guardarlo. También puede modificar el comando abierto. Cuenta un uso del límite de IA del administrador y envía unos 20 000 tokens de contexto por petición. API: `POST /api/admin/discord/cmds/ai` (solo administradores).
+**Agente de IA del editor (2.17.0):** el botón **✨ IA** (o `Ctrl+Mayús+I`) abre un chat lateral, parecido al de Claude, con respuesta **en streaming**: el texto aparece según se escribe y cada herramienta que usa (leer, crear, editar, probar…) es una tarjeta que se completa en directo, con el diff de los cambios. El agente ve los comandos como **archivos** y, con **un solo mensaje**, puede listar, leer (varios a la vez), buscar, crear, editar, reescribir, mover, borrar, **revisar la sintaxis** y **probar** (simulación) comandos, además de consultar la wiki. Tras cada escritura recibe los errores del analizador y se corrige sola. Los cambios se guardan de verdad y cada respuesta trae un botón **Deshacer** (dos horas). Si marcas «Comando abierto», conoce el comando que editas y tu borrador sin guardar. Gasta **un uso** del límite de IA por mensaje y envía solo unos 2 500 tokens de instrucciones (reglas + índice de funciones; los detalles y ejemplos los pide con `search_docs`), frente a los ~22 000 del generador anterior. Solo administradores. API: `POST /api/admin/discord/cmds/agent` (respuesta NDJSON: `text`, `tool_start`, `tool_end`, `changed`, `done`, `error`) y `POST /api/admin/discord/cmds/agent/undo` (`{runId}`). El generador de un solo paso (2.10.11, `POST /api/admin/discord/cmds/ai`) sigue disponible en la API.
 
 **Botones (2.10.11):** `$addButton[etiqueta;id;estilo;emoji]` y `$addLinkButton[etiqueta;url]` añaden botones al mensaje (hasta 25). Lo que pasa al pulsarlos se programa en un comando de nuevo tipo **Botón** cuyo activador es el id del botón (exacto o «empieza así», para mandar datos en el id: `rol:123`). Dentro puedes usar `$buttonId`, `$buttonArg[n]`, `$updateMessage` (edita el mensaje del botón), `$clearButtons`, `$ephemeral`, etc. Los ids de SBScript llevan el prefijo interno `fcs:`, así que no chocan con los del sistema de tickets.
 
@@ -658,7 +658,7 @@ Los plugins instalados viven en `data/plugins/` y su estado en `data/plugins-sta
 │   │   ├── logger.js      #   Cola en memoria y envío agrupado al canal de registros
 │   │   ├── updates.js     #   Aviso de versiones nuevas
 │   │   └── store.js       #   Vínculos y ajustes en la base de datos
-│   └── ai/                # Agente de IA (Grok/OpenAI/Gemini/Ollama) y consultas de un turno para SBScript (ask.js)
+│   └── ai/                # Agente de IA (Grok/OpenAI/Gemini/Ollama), consultas de un turno para SBScript (ask.js) y cliente con streaming (llm.js)
 │       ├── index.js       #   API pública del módulo
 │       ├── config.js      #   Configuración guardada en la base de datos
 │       ├── validate.js    #   Validación de URL, modelo, clave y límites

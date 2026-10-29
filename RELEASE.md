@@ -1,20 +1,29 @@
-# Versión 2.16.5
+# Versión 2.17.0
 
-41 funciones nuevas de SBScript (con ejemplos en la wiki y conocidas por la IA del editor), un bug corregido y mejoras de robustez y accesibilidad. No se ha quitado nada.
+Nuevo **agente de IA** en el editor de comandos de SBScript: un chat en streaming, parecido al de Claude, que ve tus comandos como archivos y puede crearlos, editarlos, leerlos, probarlos y revisarlos, varios a la vez con un solo mensaje. Además, el editor se ha rediseñado para convivir con el chat. No se ha quitado nada: el generador de un solo paso sigue disponible en la API.
 
-## Nuevas funciones de SBScript (2.16.5)
-- **Elegir sin bloques:** `$ternary`, `$switch`, `$coalesce`, `$inRange`, `$isOneOf`, `$not`.
-- **Texto:** `$wrapText`, `$sentenceCase`, `$maskText`, `$mockText`, `$lineAt`, `$center`, `$removeEmojis`, `$leetSpeak`, `$caesar`, `$morse`, `$fromMorse`, `$hexToRgb`, `$rgbToHex`.
-- **Matemáticas:** `$percentOf`, `$discount`, `$roundTo`, `$mapRange`, `$isEven`, `$isOdd`, `$digitSum`, `$simplifyFraction`, `$rollDice` (p. ej. `2d6+3`) y `$convertUnit` (longitud, masa, volumen, velocidad, datos y temperatura).
-- **Tiempo:** `$parseDuration` («1h30m», «2 días»), `$addTime`, `$age`, `$dayOfYear`, `$weekNumber`, `$startOfDay`, `$snowflakeTime` (fecha de creación de cualquier ID de Discord) y `$countdown`.
-- **JSON:** `$jsonArrayContains`, `$jsonArrayFirst`, `$jsonArrayLast` y `$jsonGetOr`.
-- La wiki marca las nuevas con «Nuevo», tiene la guía **Utilidades y atajos (2.16.5)** y la IA del editor ya las usa (y prefiere `$ternary`/`$switch` a los `$if` largos).
+## Agente de IA (botón ✨ IA, o `Ctrl+Mayús+I`)
+- **Streaming en directo:** el texto aparece según se escribe y cada herramienta que usa es una tarjeta que se va completando (preparando → ejecutando → hecho / con errores), con el diff de los cambios y accesos directos para abrir cada comando.
+- **Los comandos son archivos:** herramientas para listar, leer (varios a la vez), buscar (como grep), crear, editar con reemplazos exactos, reescribir, mover, borrar, **revisar la sintaxis**, **probar** (simulación, no toca Discord) y consultar la wiki.
+- **Varios comandos con un solo mensaje:** encadena hasta 14 pasos y 25 escrituras por mensaje (por ejemplo, un panel con botones y los comandos de botón que lo hacen funcionar).
+- **Se corrige sola:** cada escritura devuelve los errores del analizador y el agente los arregla antes de responder.
+- **Cambios reales y reversibles:** lo que crea o edita se guarda en el servidor, la lista y el editor se actualizan al momento y cada respuesta trae un botón **Deshacer** (disponible dos horas, también tras pulsar **Detener**). Si hay cambios sin guardar en el comando abierto, no se pisan: se avisa.
+- **Contexto del editor:** con «Comando abierto» marcado, el agente conoce el comando que editas y tu borrador sin guardar.
+- **Gasta mucho menos:** un uso del límite de IA por mensaje y unos 2 500 tokens de instrucciones (reglas + índice de nombres de funciones) en lugar de ~22 000; los detalles y ejemplos de la wiki los pide solo cuando los necesita. La conversación solo reenvía texto, no los resultados de las herramientas.
+- **Seguridad:** solo administradores; solo toca comandos de SBScript (nunca archivos del servidor); las pruebas son simulaciones; el contenido de los comandos se trata como datos, no como órdenes.
+- Nueva guía en la wiki: **Agente de IA del editor (2.17.0)**.
 
-## Corrección
-- `$mode` convertía los valores vacíos en números (por ejemplo `$mode[;a;a]`). Ahora los trata como texto vacío.
+## Diseño del editor
+- Tres columnas (comandos · editor · agente) con el ancho del chat **ajustable arrastrando** el borde (se recuerda).
+- Con el chat abierto, la barra del editor se compacta y el panel de funciones pasa a superponerse para que el código tenga sitio; en pantallas medianas la lista de comandos se convierte en un cajón lateral.
+- En móvil el agente ocupa toda la pantalla, con el teclado y la zona segura del iPhone respetados.
+- Botón **✨ IA** también en la barra del editor y en la pantalla de inicio; respeta `prefers-reduced-motion`.
 
-## Mejoras
-- **Robustez:** un error sin gestionar en un plugin o en el bot de Discord ya no tumba el servidor (se avisa en la consola); los errores internos (500) quedan registrados en la consola; aviso claro si el puerto está ocupado; cierre ordenado con `SIGTERM`/`Ctrl+C`.
-- **Rendimiento:** los archivos de `/vendor` (visor de PDF, JSZip…) se guardan 7 días en la caché del navegador.
-- **Monitorización:** nuevo `GET /api/health` (sin sesión) que responde `{"ok":true}`.
-- **Accesibilidad y diseño:** contorno visible al navegar con teclado y menos movimiento si el sistema lo pide (`prefers-reduced-motion`) en toda la web.
+## API
+- `POST /api/admin/discord/cmds/agent` — respuesta en NDJSON (una línea JSON por evento: `text`, `tool_prep`, `tool_prog`, `tool_start`, `tool_end`, `changed`, `done`, `error`).
+- `POST /api/admin/discord/cmds/agent/undo` — `{ "runId": "…" }` restaura los comandos tocados por esa ejecución.
+
+## Interno
+- `src/ai/llm.js`: nuevo `llmStream` (SSE de la API compatible con OpenAI; funciona con Grok, OpenAI, Gemini y Ollama, y vuelve a la respuesta completa si el proveedor no hace streaming).
+- `src/ai/ask.js`: `begin()` abre un uso del límite y lo devuelve si el proveedor falla antes de responder.
+- `src/discord/script/agent.js` (agente) y `public/js/dc-ai.js` + `public/dc-ai.css` (chat).

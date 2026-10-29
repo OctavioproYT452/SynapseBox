@@ -33,6 +33,21 @@ router.post("/api/admin/discord/cmds/ai", needAdmin, wrap(async (req, res) => {
   log(req, `usó la IA para ${cur ? "modificar" : "crear"} un comando propio (**${logger.md(r.name)}**)`);
   res.json(r);
 }));
+// Agente de IA del editor (2.17.0): chat en streaming (una línea JSON por evento) que lee, crea, edita, prueba y revisa varios comandos con un solo mensaje.
+router.post("/api/admin/discord/cmds/agent", needAdmin, async (req, res) => {
+  const ai = require("../ai"); if (!ai.enabled()) return res.status(404).json({ error: "La IA no está activada: configúrala en el panel de administración" });
+  res.writeHead(200, { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no", Connection: "keep-alive" });
+  const ac = new AbortController(); res.on("close", () => { if (!res.writableEnded) ac.abort(); });
+  const emit = ev => { if (!res.writableEnded && !res.destroyed) res.write(JSON.stringify(ev) + "\n"); };
+  const b = req.body || {}; let r = null;
+  try { r = await require("../discord/script/agent").run(req.user, { messages: b.messages, current: b.current, runId: b.runId, signal: ac.signal, emit }); }
+  catch (e) { if (!e.aborted) emit({ type: "error", message: e.message }); }
+  if (r?.changes.length) log(req, `usó el agente de IA y cambió ${r.touched.length} comando(s) propio(s): **${logger.md(r.touched.slice(0, 5).join(", "))}**`);
+  if (!res.writableEnded) res.end();
+});
+router.post("/api/admin/discord/cmds/agent/undo", needAdmin, wrap(async (req, res) => {
+  const r = require("../discord/script/agent").undo(req.user, req.body?.runId); log(req, `deshizo los cambios del agente de IA (${r.ids.length} comando(s))`); res.json({ success: true, ...r });
+}));
 router.post("/api/admin/discord/cmds/delete", needAdmin, wrap(async (req, res) => {
   const id = String(req.body?.id || ""); custom.remove(id); log(req, `borró el comando propio **${logger.md(id)}**`); res.json({ success: true });
 }));
