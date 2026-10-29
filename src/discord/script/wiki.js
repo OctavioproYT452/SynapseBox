@@ -96,6 +96,14 @@ const G = [
     { t: "table", h: ["Función", "Argumento de persona"], r: [["`$username` `$nickname` `$avatar` `$mention` `$isBot`", "`[id]`"], ["`$hasRole` `$hasPerm` `$isOwner` `$createdAt` `$joinedAt` `$userRoles`", "`[id]`"], ["`$isLinked` `$isSbAdmin` `$sbUser` `$sbSpace` `$sbQuota` `$sbPercent`", "`[idUsuario]` (nuevo)"], ["`$getUserVar` `$setUserVar` `$incUserVar` `$delUserVar` `$rankUserVar`", "último argumento `[idUsuario]`"], ["`$giveRole` `$takeRole` `$kick` `$ban` `$timeout` `$setNickname`", "`idUsuario` (moderación)"]] },
     { t: "tip", v: "Estas funciones muestran datos de **otra persona** a quien use el comando (por ejemplo su usuario y espacio de SynapseBox). Si no quieres que sea público, limita el comando con el acceso «solo admins» o añade `$ephemeral`. Si la persona no tiene la cuenta vinculada, `$sbSpace` y similares dan un error claro; compruébalo antes con `$isLinked[id]`." },
   ] },
+  { id: "utilidades", title: "Utilidades y atajos (2.16.5)", b: [
+    { t: "p", v: "La 2.16.5 añade funciones pensadas para escribir menos código: **elegir sin bloques**, **convertir unidades**, **duraciones escritas a mano**, **dados de rol** y más." },
+    { t: "ul", v: ["**Elegir sin `$if`:** `$ternary[cond;sí;no]` (solo evalúa la rama elegida), `$switch[valor;caso;resultado;…;porDefecto]`, `$coalesce[a;b;c]` (el primero que no esté vacío), `$inRange`, `$isOneOf` y `$not`.", "**Tiempo humano:** `$parseDuration[1h30m]` da segundos y `$addTime[$unix;2h30m]` suma una duración a un instante; `$age`, `$countdown`, `$dayOfYear`, `$weekNumber`, `$startOfDay` y `$snowflakeTime` (fecha de creación de cualquier ID de Discord).", "**Números:** `$convertUnit[10;km;mi]`, `$percentOf`, `$discount`, `$roundTo`, `$mapRange`, `$simplifyFraction`, `$rollDice[2d6+3]`.", "**Texto:** `$wrapText`, `$sentenceCase`, `$maskText`, `$center`, `$removeEmojis`, `$lineAt`, `$morse`, `$caesar` y más."] },
+    { t: "code", v: "$onlyIf[$isOneOf[$option[unidad];km;mi;kg;lb]==true;Usa km, mi, kg o lb.]\n$title[Conversión]\n$description[$option[valor] $option[unidad] = $convertUnit[$option[valor];$option[unidad];$switch[$option[unidad];km;mi;mi;km;kg;lb;kg]] $switch[$option[unidad];km;mi;mi;km;kg;lb;kg]]" },
+    { t: "p", v: "**Recordatorio con cuenta atrás (prefijo, `!recordar 2h30m`):**" },
+    { t: "code", v: "$onlyIf[$message[1]!=;Escribe una duración, p. ej. 2h30m.]\n$title[⏰ Recordatorio]\n$description[Terminará $discordTime[$addTime[$unix;$message[1]];R] (en $countdown[$addTime[$unix;$message[1]]]).]" },
+    { t: "tip", v: "Si una duración no se entiende (`$parseDuration[abc]`), el comando se detiene con un error claro; valídalo antes con `$onlyIf` si quieres un mensaje propio." },
+  ] },
   { id: "limites", title: "Límites y errores comunes", b: [
     { t: "ul", v: ["Máx. 4000 operaciones y 4 segundos por ejecución (la espera de una petición HTTP o de la IA no cuenta); 200 vueltas por bucle; 20 000 caracteres por comando; 200 comandos (60 slash).", "Si falta un `]`, un `$endif` o escribes una función que no existe, el editor marca la línea en rojo y la lista de **Problemas** lo explica.", "Un nombre de comando slash solo admite letras minúsculas, números, `-` y `_`, y no puede coincidir con los comandos del propio bot (`/ayuda`, `/cuenta`…).", "Cambiar un slash tarda unos segundos en aparecer en Discord.", "Los comandos de prefijo y de mensaje no responden si falta «Message Content Intent» (Developer Portal → Bot)."] },
   ] },
@@ -138,8 +146,8 @@ const G = [
 ];
 
 // Ejemplos: nombre -> [código, resultado]; n: nota extra
-// Funciones nuevas de ESTA versión (2.16.2): la wiki las marca con «Nuevo». En cada versión se reemplaza por las que se añadan, no se acumulan.
-const NEW = "replaceText cropText charCount byteCount numberSeparator checkContains checkCondition randomText sub multi divide modulo isInteger isValidHex textSplit splitText getTextSplitLength joinSplitText editSplitText removeSplitTextElement year month day hour minute second dateStamp getTimestamp".split(" ");// Categorías: icono y explicación corta para la wiki
+// Funciones nuevas de ESTA versión (2.16.5): la wiki las marca con «Nuevo». En cada versión se reemplaza por las que se añadan, no se acumulan.
+const NEW = "ternary switch coalesce inRange isOneOf not wrapText sentenceCase maskText mockText lineAt center removeEmojis leetSpeak caesar morse fromMorse hexToRgb rgbToHex percentOf discount roundTo mapRange isEven isOdd digitSum simplifyFraction rollDice convertUnit parseDuration addTime age dayOfYear weekNumber startOfDay snowflakeTime countdown jsonArrayContains jsonArrayFirst jsonArrayLast jsonGetOr".split(" ");// Categorías: icono y explicación corta para la wiki
 const CATS = {
   "Contexto": ["👤", "Quién usa el comando, dónde y qué escribió."], "Respuesta": ["💬", "Mensaje, tarjeta (embed), imágenes, captcha y envíos."],
   "Lógica y control": ["🧭", "Condiciones, permisos, esperas y captcha."], "Variables guardadas": ["💾", "Datos que se conservan para siempre: monedas, niveles, ajustes…"],
@@ -224,5 +232,21 @@ const E = {
   year: ["$year", "→ 2026 (UTC; también $year[Europe/Madrid])"], month: ["$month", "→ 10"], day: ["$day", "→ 26"], hour: ["$hour[America/Mexico_City]", "→ 14 (0 a 23)"], minute: ["$minute", "→ 5"], second: ["$second", "→ 42"], dateStamp: ["$dateStamp", "→ milisegundos desde 1970"], getTimestamp: ["$getTimestamp", "→ igual que $dateStamp"],
   median: ["$median[1;3;9]", "→ 3"], coinFlip: ["$coinFlip", "→ cara o cruz"], average: ["$average[2;4;6]", "→ 4"], dice: ["$dice[2;6]", "→ 🎲 4 + 2 = 6 (2 dados de 6 caras)"], isPalindrome: ["$isPalindrome[Anita lava la tina]", "→ true"], initials: ["$initials[Ana María López]", "→ AML"], daysUntil: ["$daysUntil[$parseDate[2026-12-25]]", "→ días que faltan"], weekday: ["$weekday", "→ lunes (hoy; también $weekday[unix])"],
   delUserVar: ["$delUserVar[monedas]", ""], delServerVar: ["$delServerVar[x]", ""], delGlobalVar: ["$delGlobalVar[x]", ""],
+  // ---- 2.16.5 ----
+  ternary: ["$ternary[$message==hola;¡Hola!;No entendí]", "elige entre dos textos sin usar $if; solo evalúa la rama elegida"], switch: ["$switch[$option[color];rojo;🔴;verde;🟢;azul;🔵;⚪]", "el último dato es el valor por defecto"],
+  coalesce: ["$coalesce[$option[apodo];$nickname;$username]", "el primero que no esté vacío"], inRange: ["$if[$inRange[$option[edad];13;99]==true]Puedes pasar$endif", "ambos extremos incluidos"],
+  isOneOf: ["$if[$isOneOf[$message;si;sí;ok]==true]Aceptado$endif", "sin distinguir mayúsculas"], not: ["$not[true]", "→ false"],
+  wrapText: ["$wrapText[uno dos tres cuatro cinco;9]", "→ cuatro líneas de 9 como máximo"], sentenceCase: ["$sentenceCase[HOLA. ¿QUÉ TAL?]", "→ Hola. ¿Qué tal?"], maskText: ["$maskText[correo123;3]", "→ ••••••123"],
+  mockText: ["$mockText[hola mundo]", "→ hOlA mUnDo"], lineAt: ["$lineAt[a\nb\nc;-1]", "→ c (la última línea)"], center: ["[$center[hi;6;*]]", "→ [**hi**]"], removeEmojis: ["$removeEmojis[Hola 😀 mundo]", "→ Hola mundo"],
+  leetSpeak: ["$leetSpeak[testeo]", "→ 735730"], caesar: ["$caesar[Hola;3]", "→ Krod (con -3 se descifra)"], morse: ["$morse[sos]", "→ ... --- ..."], fromMorse: ["$fromMorse[... --- ...]", "→ sos"],
+  hexToRgb: ["$hexToRgb[#ff8800]", "→ 255, 136, 0"], rgbToHex: ["$color[$rgbToHex[255;136;0]]", "→ #ff8800, listo para la tarjeta"],
+  percentOf: ["$percentOf[20;150]", "→ 30"], discount: ["$discount[80;25]", "→ 60"], roundTo: ["$roundTo[47;5]  $roundTo[3.14159;0.01]", "→ 45  3.14"], mapRange: ["$mapRange[5;0;10;0;100]", "→ 50"],
+  isEven: ["$isEven[4]", "→ true"], isOdd: ["$isOdd[7]", "→ true"], digitSum: ["$digitSum[1234]", "→ 10"], simplifyFraction: ["$simplifyFraction[6;8]", "→ 3/4"],
+  rollDice: ["$rollDice[2d6+3]", "solo el total; para ver cada dado usa $dice"], convertUnit: ["$convertUnit[10;km;mi]  $convertUnit[100;c;f]", "→ 6.213712  212 (longitud, masa, volumen, velocidad, datos y temperatura)"],
+  parseDuration: ["$parseDuration[1h30m]", "→ 5400 (segundos); también «2 días», «90s», «1 sem»"], addTime: ["$discordTime[$addTime[$unix;2h30m];R]", "→ dentro de 2 h 30 min"],
+  age: ["$age[2000-01-01] años", "→ años cumplidos hoy"], dayOfYear: ["$dayOfYear", "→ 1 a 366"], weekNumber: ["$weekNumber", "→ semana ISO (1 a 53)"], startOfDay: ["$startOfDay", "→ 00:00 UTC de hoy (segundos Unix)"],
+  snowflakeTime: ["$discordTime[$snowflakeTime[$userId];D]", "fecha de creación de cualquier ID de Discord"], countdown: ["Faltan $countdown[$parseDate[2026-12-25]]", "→ Faltan 57 d 3 h"],
+  jsonArrayContains: ["$if[$jsonArrayContains[tags;a]==true]…$endif", "true si la lista tiene ese valor"], jsonArrayFirst: ["$jsonArrayFirst[tags]", "el primer elemento"], jsonArrayLast: ["$jsonArrayLast[tags]", "el último elemento"],
+  jsonGetOr: ["$jsonGetOr[user;bio;Sin biografía]", "valor por defecto si no existe, es null o está vacío"],
 };
 module.exports = { GUIDES: G, EXAMPLES: E, CATS, NEW };

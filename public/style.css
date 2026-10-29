@@ -178,3 +178,7 @@ dialog{overflow-x:hidden}dialog form,dialog form>div,dialog .atabs{min-width:0}
   .ptool select,.ptool .seg{flex:1 1 auto}.ptool .psearch{max-width:none}
 }
 .pre[data-i="-1"]{grid-column:1/-1;justify-content:center}
+/* 2.16.5: accesibilidad. Contorno visible al navegar con teclado (sin especificidad: no pisa los estilos propios) y menos movimiento si el sistema lo pide */
+:where(a,button,input,select,textarea,summary,[tabindex]):focus-visible{outline:2px solid var(--accent,#4f8cff);outline-offset:2px}
+button,a,[role=button]{-webkit-tap-highlight-color:transparent}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}

@@ -54,8 +54,12 @@ app.get(["/", "/index.html"], (req, res, next) => req.user ? res.redirect("/pane
 app.get(["/panel.html", "/themes.html"], (req, res, next) => req.user ? next() : res.redirect("/"));
 app.use("/admin", (req, res, next) => req.user?.is_admin ? next() : res.redirect("/"));
 app.use(plugins.html); // inyecta los plugins activos en las páginas HTML
-app.use(express.static(PUBLIC));
-app.use((err, req, res, next) => res.status(500).json({ error: "Error interno" }));
+app.get("/api/health", (req, res) => res.json({ ok: true })); // para comprobar desde un proxy, PM2 o un monitor que el servidor responde
+app.use(express.static(PUBLIC, { setHeaders: (res, file) => { if (file.includes(path.sep + "vendor" + path.sep)) res.set("Cache-Control", "public, max-age=604800"); } })); // /vendor casi nunca cambia: caché de 7 días
+app.use((err, req, res, next) => { console.error("Error en " + req.method + " " + req.path + ":", err?.message || err); if (res.headersSent) return next(err); res.status(500).json({ error: "Error interno" }); });
+
+// Una promesa rechazada en un plugin o en el bot de Discord no debe tumbar todo el servidor: se avisa en la consola y sigue funcionando
+process.on("unhandledRejection", e => console.error("Aviso (promesa sin gestionar):", e?.message || e));
 
 // ---------- mantenimiento periódico ----------
 setInterval(() => {
@@ -73,4 +77,7 @@ if (!get("SELECT COUNT(*) n FROM users").n)
 ver.start();
 plugins.init(app).then(() => plugins.emit("server:start", {})); // carga los plugins activados
 discord.start(); // bot de Discord opcional: solo arranca si hay DISCORD_TOKEN en .env
-app.listen(PORT, () => { console.log(`SynapseBox corriendo en http://localhost:${PORT}`); console.log("Agente de IA: " + ai.describe()); });
+const server = app.listen(PORT, () => { console.log(`SynapseBox corriendo en http://localhost:${PORT}`); console.log("Agente de IA: " + ai.describe()); });
+server.on("error", e => { console.error(e.code === "EADDRINUSE" ? `El puerto ${PORT} ya está en uso: cambia PORT en el .env o cierra la otra copia de SynapseBox.` : "No se pudo iniciar el servidor: " + e.message); process.exit(1); });
+// Cierre ordenado (PM2, systemd, Ctrl+C): deja de aceptar conexiones y termina; si algo se queda colgado, sale a los 5 s
+for (const sig of ["SIGTERM", "SIGINT"]) process.once(sig, () => { console.log("Cerrando SynapseBox…"); server.close(() => process.exit(0)); setTimeout(() => process.exit(0), 5000).unref(); });

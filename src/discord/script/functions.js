@@ -337,7 +337,7 @@ F(C5, "hypot", "a;b;…", "Hipotenusa: raíz de la suma de cuadrados.", (c, a) =
 F(C5, "sin", "grados", "Seno de un ángulo en grados.", (c, a) => +Math.sin(N(a[0]) * Math.PI / 180).toFixed(10), { min: 1 });
 F(C5, "cos", "grados", "Coseno de un ángulo en grados.", (c, a) => +Math.cos(N(a[0]) * Math.PI / 180).toFixed(10), { min: 1 });
 F(C5, "tan", "grados", "Tangente de un ángulo en grados.", (c, a) => { const r = Math.tan(N(a[0]) * Math.PI / 180); return Math.abs(r) > 1e12 ? "infinito" : +r.toFixed(10); }, { min: 1 });
-F(C5, "mode", "a;b;…", "El valor que más se repite (el primero si hay empate).", (c, a) => { const m = new Map(); let best = a[0], n = 0; for (const x of a.map(S)) { const k = (m.get(x) || 0) + 1; m.set(x, k); if (k > n) { n = k; best = x; } } return best; }, { min: 1 });
+F(C5, "mode", "a;b;…", "El valor que más se repite (el primero si hay empate).", (c, a) => { const m = new Map(); let best = a[0], n = 0; for (const x of a.map(x => S(x))) { const k = (m.get(x) || 0) + 1; m.set(x, k); if (k > n) { n = k; best = x; } } return best; }, { min: 1 });
 F(C5, "variance", "a;b;…", "Varianza (poblacional) de varios números.", (c, a) => { const v = nums(a), m = v.reduce((s, x) => s + x, 0) / v.length; return +(v.reduce((s, x) => s + (x - m) ** 2, 0) / v.length).toFixed(6); }, { min: 1 });
 F(C5, "distance", "x1;y1;x2;y2", "Distancia entre dos puntos.", (c, a) => +Math.hypot(N(a[2]) - N(a[0]), N(a[3]) - N(a[1])).toFixed(6), { min: 4 });
 F(C5, "percentChange", "antes;después", "Variación porcentual entre dos valores. Ej.: $percentChange[50;75] → 50.", (c, a) => { const x = N(a[0]); if (!x) throw Error("el valor inicial no puede ser 0"); return +((N(a[1]) - x) / Math.abs(x) * 100).toFixed(4); }, { min: 2 });
@@ -462,6 +462,92 @@ F(CA, "aiIdeas", "tema;[cantidad]", "Da una lista de ideas sobre un tema (5 por 
 F(CA, "aiSentiment", "texto", "Devuelve positivo, negativo o neutral según el tono del texto.", async (c, a) => { const r = (await askAI(c, "Indica el sentimiento del texto. Responde con una sola palabra: positivo, negativo o neutral.", a[0])).toLowerCase(); return /negativ/.test(r) ? "negativo" : /positiv/.test(r) ? "positivo" : "neutral"; }, { min: 1 });
 F(CA, "aiClassify", "texto;cat1,cat2,…", "Elige a cuál de tus categorías pertenece el texto. Devuelve una de ellas (vacío si ninguna encaja).", async (c, a) => { const cats = S(a[1]).split(",").map(x => x.trim()).filter(Boolean).slice(0, 20); if (!cats.length) throw Error("indica las categorías separadas por coma"); const r = (await askAI(c, `Clasifica el texto en UNA de estas categorías: ${cats.join(", ")}. Responde solo con el nombre exacto de la categoría.`, a[0])).toLowerCase(); return cats.find(x => r === x.toLowerCase()) || cats.find(x => r.includes(x.toLowerCase())) || ""; }, { min: 2 });
 F(CA, "aiModerate", "texto", "true si la IA considera el texto ofensivo, acoso, spam o inapropiado; si no, false. Pensado para comandos de mensaje.", async (c, a) => /^\s*(si|sí|true|yes)/i.test(await askAI(c, "¿El texto contiene insultos, acoso, discurso de odio, spam o contenido inapropiado? Responde solo «si» o «no».", a[0])), { min: 1 });
+
+// =================== Novedades 2.16.5 ===================
+// Lógica sin bloques, texto, matemáticas, tiempo y utilidades de Discord. Todas son puras (no tocan Discord ni la base de datos).
+const isNum = v => !isNaN(R.num(v));
+const r6 = x => +x.toFixed(6);
+// Duración escrita a mano («1h30m», «2 días», «90s») → segundos. Un número solo se toma como segundos.
+const DUR = { s: 1, seg: 1, segundo: 1, segundos: 1, m: 60, min: 60, minuto: 60, minutos: 60, h: 3600, hr: 3600, hora: 3600, horas: 3600, d: 86400, dia: 86400, dias: 86400, w: 604800, sem: 604800, semana: 604800, semanas: 604800 };
+function pdur(v, name) {
+  let t = noAcc(S(v).trim().toLowerCase()).replace(/[,;]|\by\b/g, " "), sign = 1;
+  if (t.startsWith("-")) { sign = -1; t = t.slice(1).trim(); }
+  if (!t) throw Error(`${name}: falta la duración (ej. 1h30m)`);
+  if (/^\d+(?:\.\d+)?$/.test(t)) return sign * Math.round(+t);
+  let total = 0, used = 0; const re = /(\d+(?:\.\d+)?)\s*([a-z]+)/g; let m;
+  while ((m = re.exec(t))) { const k = DUR[m[2]]; if (!k) throw Error(`${name}: no entiendo «${m[2]}» (usa s, min, h, d o sem)`); total += +m[1] * k; used += m[0].length; }
+  if (!used || t.replace(re, "").replace(/\s+/g, "") !== "") throw Error(`${name}: no entiendo la duración «${S(v).slice(0, 30)}» (ej. 1h30m, 2 días)`);
+  if (total > 3.2e8) throw Error(`${name}: la duración es demasiado grande`);
+  return sign * Math.round(total);
+}
+const sameText = (a, b) => { const x = S(a).trim(), y = S(b).trim(); return isNum(x) && isNum(y) ? R.num(x) === R.num(y) : x.toLowerCase() === y.toLowerCase(); };
+
+// ---- lógica ----
+F(C3, "ternary", "condición;siSí;siNo", "Elige entre dos textos según una condición, sin usar bloques. Solo se evalúa la rama elegida. Ej.: $ternary[$message==hola;Hola!;Adiós].", async (c, a) => (await R.cond(c, a[0] || [])) ? await R.ev(c, a[1] || []) : await R.ev(c, a[2] || []), { lazy: true, min: 2 });
+F(C3, "switch", "valor;caso1;resultado1;caso2;resultado2;…;[porDefecto]", "Compara el valor con cada caso (sin distinguir mayúsculas; los números se comparan como números) y devuelve el resultado del primero que coincida. Si sobra un último dato, es el valor por defecto.", (c, a) => { const rest = a.slice(1); for (let i = 0; i + 1 < rest.length; i += 2) if (sameText(a[0], rest[i])) return rest[i + 1]; return rest.length % 2 ? rest[rest.length - 1] : ""; }, { min: 3 });
+F(C3, "coalesce", "a;b;c;…", "El primer valor que no esté vacío (vacío si todos lo están). Parecido a $default pero con varios candidatos.", (c, a) => a.map(x => S(x)).find(x => x.trim() !== "") ?? "", { min: 1 });
+F(C3, "inRange", "valor;mín;máx", "true si el número está entre mín y máx (ambos incluidos).", (c, a) => { const x = R.num(a[0]), lo = R.num(a[1]), hi = R.num(a[2]); return !isNaN(x) && !isNaN(lo) && !isNaN(hi) && x >= Math.min(lo, hi) && x <= Math.max(lo, hi); }, { min: 3 });
+F(C3, "isOneOf", "valor;a;b;c;…", "true si el valor es igual a alguno de los siguientes (sin distinguir mayúsculas; números como números).", (c, a) => a.slice(1).some(x => sameText(a[0], x)), { min: 2 });
+F(C3, "not", "valor", "Invierte un true/false: $not[true] → false. Vacío, 0, no y null cuentan como false.", (c, a) => !R.truthy(S(a[0])), { min: 1 });
+
+// ---- texto ----
+F(C6, "wrapText", "texto;ancho", "Parte el texto en líneas de como máximo ese ancho (5 a 200), sin cortar palabras (las palabras más largas se trocean).", (c, a) => {
+  const w = Math.min(200, Math.max(5, Math.round(N(a[1], 40)))), out = []; let line = "";
+  for (let word of S(a[0]).slice(0, 4000).split(/\s+/).filter(Boolean)) {
+    while ([...word].length > w) { if (line) { out.push(line); line = ""; } out.push([...word].slice(0, w).join("")); word = [...word].slice(w).join(""); }
+    if (!line) line = word; else if ([...line].length + 1 + [...word].length <= w) line += " " + word; else { out.push(line); line = word; }
+  }
+  if (line) out.push(line); return out.join("\n");
+}, { min: 2 });
+F(C6, "sentenceCase", "texto", "Deja solo en mayúscula la primera letra de cada frase. Ej.: «HOLA. ¿QUÉ TAL?» → «Hola. ¿Qué tal?».", (c, a) => S(a[0]).toLowerCase().replace(/(^[\s¡¿]*|[.!?]\s+[¡¿]?)(\p{Ll})/gu, (m, p, ch) => p + ch.toUpperCase()), { min: 1 });
+F(C6, "maskText", "texto;[visibles];[símbolo]", "Oculta el texto con • y deja visibles los últimos caracteres (2 por defecto). Útil para correos o códigos.", (c, a) => { const ch = [...S(a[0])], keep = Math.min(ch.length, Math.max(0, Math.round(N(a[1], 2)))), sym = [...S(a[2], "•")][0] || "•"; return ch.map((x, i) => i >= ch.length - keep || /\s/.test(x) ? x : sym).join(""); }, { min: 1 });
+F(C6, "mockText", "texto", "Alterna mayúsculas y minúsculas, como en los memes: «hola» → «hOlA».", (c, a) => { let k = 0; return [...S(a[0])].map(x => /\p{L}/u.test(x) ? (k++ % 2 ? x.toUpperCase() : x.toLowerCase()) : x).join(""); }, { min: 1 });
+F(C6, "lineAt", "texto;n", "La línea n del texto (desde 1; negativa = desde el final). Vacío si no existe.", (c, a) => { const l = S(a[0]).split(/\r?\n/), n = Math.round(N(a[1])), i = n > 0 ? n - 1 : l.length + n; return i >= 0 && i < l.length ? l[i] : ""; }, { min: 2 });
+F(C6, "center", "texto;ancho;[relleno]", "Centra el texto rellenando por ambos lados hasta ese ancho (máx. 100).", (c, a) => { const t = [...S(a[0])], w = Math.min(100, Math.round(N(a[1]))), f = [...S(a[2], " ")][0] || " "; if (t.length >= w) return t.join(""); const left = Math.floor((w - t.length) / 2); return f.repeat(left) + t.join("") + f.repeat(w - t.length - left); }, { min: 2 });
+F(C6, "removeEmojis", "texto", "Quita los emojis (también los personalizados de Discord) y deja el resto.", (c, a) => S(a[0]).replace(/<a?:\w+:\d+>/g, "").replace(/\p{Extended_Pictographic}|[\u{1F1E6}-\u{1F1FF}]|[️‍]/gu, "").replace(/ {2,}/g, " ").trim(), { min: 1 });
+F(C6, "leetSpeak", "texto", "Escribe en «leet»: a→4, e→3, i→1, o→0, s→5, t→7.", (c, a) => noAcc(S(a[0])).replace(/[aeiost]/gi, ch => ({ a: "4", e: "3", i: "1", o: "0", s: "5", t: "7" })[ch.toLowerCase()]), { min: 1 });
+F(C6, "caesar", "texto;desplazamiento", "Cifrado César: desplaza las letras (a–z) esa cantidad; usa el número negativo para descifrar.", (c, a) => { const k = ((Math.round(N(a[1])) % 26) + 26) % 26; return S(a[0]).replace(/[a-z]/gi, ch => { const b = ch <= "Z" ? 65 : 97; return String.fromCharCode((ch.charCodeAt(0) - b + k) % 26 + b); }); }, { min: 2 });
+const MORSE = { a: ".-", b: "-...", c: "-.-.", d: "-..", e: ".", f: "..-.", g: "--.", h: "....", i: "..", j: ".---", k: "-.-", l: ".-..", m: "--", n: "-.", o: "---", p: ".--.", q: "--.-", r: ".-.", s: "...", t: "-", u: "..-", v: "...-", w: ".--", x: "-..-", y: "-.--", z: "--..", 0: "-----", 1: ".----", 2: "..---", 3: "...--", 4: "....-", 5: ".....", 6: "-....", 7: "--...", 8: "---..", 9: "----.", ".": ".-.-.-", ",": "--..--", "?": "..--..", "!": "-.-.--" };
+const UNMORSE = Object.fromEntries(Object.entries(MORSE).map(([k, v]) => [v, k]));
+F(C6, "morse", "texto", "Pasa el texto a código Morse (letras, números y . , ? !). Letras separadas por espacio y palabras por « / ».", (c, a) => noAcc(S(a[0]).toLowerCase()).split(/\s+/).filter(Boolean).map(w => [...w].map(x => MORSE[x]).filter(Boolean).join(" ")).filter(Boolean).join(" / "), { min: 1 });
+F(C6, "fromMorse", "código", "Pasa código Morse a texto (letras separadas por espacio y palabras por /).", (c, a) => S(a[0]).trim().split(/\s*\/\s*/).map(w => w.split(/\s+/).map(x => UNMORSE[x] ?? "").join("")).join(" ").trim(), { min: 1 });
+F(C6, "hexToRgb", "color", "Convierte un color hexadecimal (#ff8800 o #f80) a «255, 136, 0».", (c, a) => { let h = S(a[0]).trim().replace(/^#/, ""); if (/^[\da-f]{3}$/i.test(h)) h = [...h].map(x => x + x).join(""); if (!/^[\da-f]{6}$/i.test(h)) throw Error("$hexToRgb: color no válido (usa #rrggbb)"); return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)).join(", "); }, { min: 1 });
+F(C6, "rgbToHex", "rojo;verde;azul", "Convierte tres números (0 a 255) en un color hexadecimal. Ej.: $color[$rgbToHex[255;136;0]].", (c, a) => "#" + [0, 1, 2].map(i => Math.min(255, Math.max(0, Math.round(N(a[i])))).toString(16).padStart(2, "0")).join(""), { min: 3 });
+
+// ---- matemáticas ----
+F(C5, "percentOf", "porcentaje;total", "El porcentaje de un total. Ej.: $percentOf[20;150] → 30.", (c, a) => r6(N(a[0]) * N(a[1]) / 100), { min: 2 });
+F(C5, "discount", "precio;porcentaje", "Precio tras aplicar un descuento. Ej.: $discount[80;25] → 60.", (c, a) => r6(N(a[0]) * (1 - N(a[1]) / 100)), { min: 2 });
+F(C5, "roundTo", "número;[múltiplo]", "Redondea al múltiplo más cercano (1 por defecto). Ej.: $roundTo[47;5] → 45, $roundTo[3.14159;0.01] → 3.14.", (c, a) => { const m = a[1] === undefined || a[1] === "" ? 1 : N(a[1]); if (!m) throw Error("el múltiplo no puede ser 0"); return +(Math.round(N(a[0]) / m) * m).toFixed(10); }, { min: 1 });
+F(C5, "mapRange", "valor;deMín;deMáx;aMín;aMáx", "Traslada un valor de una escala a otra. Ej.: $mapRange[5;0;10;0;100] → 50.", (c, a) => { const x = N(a[1]), y = N(a[2]); if (x === y) throw Error("$mapRange: el rango de origen no puede tener el mismo inicio y fin"); return r6(N(a[3]) + (N(a[0]) - x) / (y - x) * (N(a[4]) - N(a[3]))); }, { min: 5 });
+F(C5, "isEven", "número", "true si es un entero par.", (c, a) => { const x = R.num(a[0]); return Number.isInteger(x) && x % 2 === 0; }, { min: 1 });
+F(C5, "isOdd", "número", "true si es un entero impar.", (c, a) => { const x = R.num(a[0]); return Number.isInteger(x) && Math.abs(x % 2) === 1; }, { min: 1 });
+F(C5, "digitSum", "número", "Suma de las cifras de un número. Ej.: $digitSum[1234] → 10.", (c, a) => [...String(Math.trunc(Math.abs(N(a[0]))))].reduce((s, d) => s + (+d || 0), 0), { min: 1 });
+F(C5, "simplifyFraction", "numerador;denominador", "Simplifica una fracción. Ej.: $simplifyFraction[6;8] → 3/4.", (c, a) => { let x = Math.round(N(a[0])), y = Math.round(N(a[1])); if (!y) throw Error("el denominador no puede ser 0"); const g = (p, q) => q ? g(q, p % q) : Math.abs(p), d = g(x, y) || 1; x /= d; y /= d; if (y < 0) { x = -x; y = -y; } return y === 1 ? String(x) : x + "/" + y; }, { min: 2 });
+F(C5, "rollDice", "notación", "Tira dados con notación de rol y devuelve solo el total. Ej.: $rollDice[2d6+3] (hasta 100 dados de 1000 caras; también d20). Para ver cada dado usa $dice.", (c, a) => { const m = /^(\d{0,3})d(\d{1,4})([+-]\d{1,6})?$/i.exec(S(a[0]).replace(/\s+/g, "")); if (!m) throw Error("$rollDice: usa el formato 2d6, d20 o 3d8+2"); const n = m[1] ? +m[1] : 1, s = +m[2]; if (n < 1 || n > 100 || s < 2) throw Error("$rollDice: de 1 a 100 dados de al menos 2 caras"); let t = 0; for (let i = 0; i < n; i++) t += crypto.randomInt(s) + 1; return t + (m[3] ? +m[3] : 0); }, { min: 1 });
+const UNITS = { // cada unidad vale tantas unidades base de su familia (m, kg, l, m/s, B)
+  longitud: { mm: .001, cm: .01, m: 1, km: 1000, in: .0254, ft: .3048, yd: .9144, mi: 1609.344 },
+  masa: { mg: 1e-6, g: .001, kg: 1, t: 1000, oz: .028349523125, lb: .45359237 },
+  volumen: { ml: .001, l: 1, gal: 3.785411784, floz: .0295735295625, cup: .2365882365 },
+  velocidad: { ms: 1, kmh: 1 / 3.6, mph: .44704, kn: .5144444444 },
+  datos: { b: 1, kb: 1024, mb: 1048576, gb: 1073741824, tb: 1099511627776 },
+};
+F(C5, "convertUnit", "valor;desde;hasta", "Convierte unidades. Longitud: mm cm m km in ft yd mi · Masa: mg g kg t oz lb · Volumen: ml l gal floz cup · Velocidad: ms kmh mph kn · Datos: b kb mb gb tb · Temperatura: c f k. Ej.: $convertUnit[10;km;mi] → 6.213712.", (c, a) => {
+  const x = R.num(a[0]); if (isNaN(x)) throw Error("$convertUnit: el valor debe ser un número");
+  const norm = u => S(u).toLowerCase().replace(/[\s°\/]/g, ""), f = norm(a[1]), t = norm(a[2]);
+  if (["c", "f", "k"].includes(f) && ["c", "f", "k"].includes(t)) { const k = f === "c" ? x + 273.15 : f === "f" ? (x - 32) * 5 / 9 + 273.15 : x; return r6(t === "c" ? k - 273.15 : t === "f" ? (k - 273.15) * 9 / 5 + 32 : k); }
+  const fam = Object.values(UNITS).find(u => f in u && t in u); if (!fam) throw Error(`$convertUnit: no sé convertir «${S(a[1]).slice(0, 12)}» a «${S(a[2]).slice(0, 12)}» (deben ser de la misma familia)`);
+  return r6(x * fam[f] / fam[t]);
+}, { min: 3 });
+
+// ---- tiempo ----
+F(C7, "parseDuration", "duración", "Convierte una duración escrita («1h30m», «2 días», «90s», «1 sem») en segundos. Útil para recordatorios y timeouts.", (c, a) => pdur(a[0], "$parseDuration"), { min: 1 });
+F(C7, "addTime", "unix;duración", "Suma (o resta, con «-» delante) una duración a un instante Unix. Ej.: $addTime[$unix;2h30m]. Devuelve segundos Unix.", (c, a) => Math.round(N(a[0])) + pdur(a[1], "$addTime"), { min: 2 });
+F(C7, "age", "AAAA-MM-DD", "Años cumplidos desde una fecha de nacimiento (usa la fecha de hoy en UTC).", (c, a) => { const m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(S(a[0]).trim()); if (!m) throw Error("$age: usa el formato AAAA-MM-DD"); const [y, mo, d] = [+m[1], +m[2], +m[3]], t = new Date(Date.UTC(y, mo - 1, d)); if (isNaN(t) || t.getUTCDate() !== d) throw Error("$age: fecha no válida"); const n = new Date(); let r = n.getUTCFullYear() - y; if (n.getUTCMonth() + 1 < mo || (n.getUTCMonth() + 1 === mo && n.getUTCDate() < d)) r--; if (r < 0) throw Error("$age: la fecha es del futuro"); return r; }, { min: 1 });
+F(C7, "dayOfYear", "[unix]", "Día del año (1 a 366) de un instante (UTC; hoy por defecto).", (c, a) => { const d = new Date((a[0] === undefined || a[0] === "" ? Date.now() / 1000 : N(a[0])) * 1000); return Math.round((Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - Date.UTC(d.getUTCFullYear(), 0, 0)) / 86400000); });
+F(C7, "weekNumber", "[unix]", "Número de semana del año (ISO, 1 a 53) de un instante (UTC; hoy por defecto).", (c, a) => { const d = new Date((a[0] === undefined || a[0] === "" ? Date.now() / 1000 : N(a[0])) * 1000), t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())); t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7)); return Math.ceil(((t - Date.UTC(t.getUTCFullYear(), 0, 1)) / 86400000 + 1) / 7); });
+F(C7, "startOfDay", "[unix]", "Segundos Unix del comienzo (00:00 UTC) del día de un instante (hoy por defecto).", (c, a) => Math.floor((a[0] === undefined || a[0] === "" ? Date.now() / 1000 : N(a[0])) / 86400) * 86400);
+F(C7, "snowflakeTime", "id", "Segundos Unix de creación de cualquier ID de Discord (usuario, mensaje, canal, rol…). Combínalo con $discordTime.", (c, a) => { const s = S(a[0]).trim(); if (!/^\d{15,20}$/.test(s)) throw Error("$snowflakeTime: el ID debe tener de 15 a 20 cifras"); return Math.floor((Number(BigInt(s) >> 22n) + 1420070400000) / 1000); }, { min: 1 });
+F(C7, "countdown", "unix", "Cuenta atrás hasta un instante futuro: «3 d 4 h 2 min» (o «ya pasó»).", (c, a) => { const d = N(a[0]) - Date.now() / 1000; return d > 0 ? human(d) : "ya pasó"; }, { min: 1 });
 
 // =================== HTTP y JSON (httpjson.js) ===================
 require("./httpjson")(F, { S, N, act });
