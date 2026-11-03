@@ -1,4 +1,4 @@
-/* Agente de IA del editor de SBScript y retoques del editor (2.17.0). Prefijo ai- / dc- para no chocar con style.css */
+/* Agente de IA del editor de SBScript y retoques del editor (2.17.0 → 2.18.0). Prefijo ai- / dc- para no chocar con style.css */
 
 /* ---- diseño general: tres columnas (comandos · editor · agente) ---- */
 .dc-app{--ai-ok:#34d399;--ai-warn:#fbbf24;--ai-bad:#ff6b7a;--ai-bub:color-mix(in srgb,var(--accent) 16%,var(--card2))}

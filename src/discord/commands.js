@@ -527,7 +527,7 @@ module.exports = function build(D) {
     await reply(i, { embeds: [emb("Tus favoritos", f.map(x => md(P(x.path))).join("\n") || "*No tienes favoritos todavía.*")] });
   }, "user");
   add(pubOpt(cmd("comandos", "Comandos propios de este servidor (creados desde la web)")), async i => {
-    const l = custom.list().commands.filter(c => c.activo && c.acceso !== "admin" && c.tipo !== "boton"), pf = custom.prefix();
+    const l = custom.list().commands.filter(c => c.activo && c.acceso !== "admin" && !["boton", "seleccion", "modal"].includes(c.tipo)), pf = custom.prefix();
     const line = c => `${c.tipo === "slash" ? "**/" + c.name + "**" : c.tipo === "prefijo" ? "**" + pf + c.name + "**" : "*" + md(c.name) + "* (responde a un mensaje)"}${c.descripcion ? " · " + md(c.descripcion) : ""}`;
     await reply(i, { embeds: [emb("Comandos propios", l.slice(0, 40).map(line).join("\n") || "*Todavía no hay comandos propios.*")] }, isPub(i, false));
   });

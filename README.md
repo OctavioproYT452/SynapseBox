@@ -11,7 +11,7 @@ Sube, organiza, edita y comparte archivos desde cualquier dispositivo, con usuar
 
 </div>
 
-> **Versión 2.17.0.** Qué ha cambiado en esta versión: consulta [RELEASE.md](RELEASE.md).
+> **Versión 2.18.0.** Qué ha cambiado en esta versión: consulta [RELEASE.md](RELEASE.md).
 
 ---
 
@@ -354,7 +354,7 @@ Disponible en `/admin/` solo para administradores. Usa el mismo menú de usuario
 - La versión instalada está en `data/version.json`:
 
   ```json
-  { "version": "2.17.0" }
+  { "version": "2.18.0" }
   ```
 
 - Cada 2 minutos el servidor lee ese archivo local y lo compara con el `data/version.json` publicado en GitHub. Si el de GitHub es más nuevo (se comparan los números: `2.10` es mayor que `2.9`), los **administradores** ven un aviso de nueva versión con instrucciones para actualizar.
@@ -498,9 +498,11 @@ $footer[Tu espacio: $sbSpace de $sbQuota]
 - **JSON:** `$jsonParse`, `$json[clave;…]`, `$jsonSet`, `$jsonSetString`, `$jsonUnset`, `$jsonClear`, `$jsonExists`, `$jsonStringify`, `$jsonPretty`, `$jsonArray`, `$jsonArrayAppend`, `$jsonArrayUnshift`, `$jsonArrayPop`, `$jsonArrayShift`, `$jsonArrayCount`, `$jsonArrayIndex`, `$jsonArrayReverse`, `$jsonArraySort` y `$jsonJoinArray`. Las listas empiezan en la posición 0 y los corchetes de un JSON escrito a mano se escapan como `\[` y `\]`.
 - Ejemplo: `$httpGet[https://api.example.com/usuario/1;No pude consultar la API.]` + `$jsonParse[$httpResult]` + `$title[$json[name]]`.
 
-**Agente de IA del editor (2.17.0):** el botón **✨ IA** (o `Ctrl+Mayús+I`) abre un chat lateral, parecido al de Claude, con respuesta **en streaming**: el texto aparece según se escribe y cada herramienta que usa (leer, crear, editar, probar…) es una tarjeta que se completa en directo, con el diff de los cambios. El agente ve los comandos como **archivos** y, con **un solo mensaje**, puede listar, leer (varios a la vez), buscar, crear, editar, reescribir, mover, borrar, **revisar la sintaxis** y **probar** (simulación) comandos, además de consultar la wiki. Tras cada escritura recibe los errores del analizador y se corrige sola. Los cambios se guardan de verdad y cada respuesta trae un botón **Deshacer** (dos horas). Si marcas «Comando abierto», conoce el comando que editas y tu borrador sin guardar. Gasta **un uso** del límite de IA por mensaje y envía solo unos 2 500 tokens de instrucciones (reglas + índice de funciones; los detalles y ejemplos los pide con `search_docs`), frente a los ~22 000 del generador anterior. Solo administradores. API: `POST /api/admin/discord/cmds/agent` (respuesta NDJSON: `text`, `tool_start`, `tool_end`, `changed`, `done`, `error`) y `POST /api/admin/discord/cmds/agent/undo` (`{runId}`). El generador de un solo paso (2.10.11, `POST /api/admin/discord/cmds/ai`) sigue disponible en la API.
+**Agente de IA del editor (2.17.0, mejorado en 2.18.0: no se detiene hasta avisar de que ha terminado):** el botón **✨ IA** (o `Ctrl+Mayús+I`) abre un chat lateral, parecido al de Claude, con respuesta **en streaming**: el texto aparece según se escribe y cada herramienta que usa (leer, crear, editar, probar…) es una tarjeta que se completa en directo, con el diff de los cambios. El agente ve los comandos como **archivos** y, con **un solo mensaje**, puede listar, leer (varios a la vez), buscar, crear, editar, reescribir, mover, borrar, **revisar la sintaxis** y **probar** (simulación) comandos, además de consultar la wiki. Tras cada escritura recibe los errores del analizador y se corrige sola. Los cambios se guardan de verdad y cada respuesta trae un botón **Deshacer** (dos horas). Si marcas «Comando abierto», conoce el comando que editas y tu borrador sin guardar. Gasta **un uso** del límite de IA por mensaje y envía solo unos 2 500 tokens de instrucciones (reglas + índice de funciones; los detalles y ejemplos los pide con `search_docs`), frente a los ~22 000 del generador anterior. Solo administradores. API: `POST /api/admin/discord/cmds/agent` (respuesta NDJSON: `text`, `tool_start`, `tool_end`, `changed`, `done`, `error`) y `POST /api/admin/discord/cmds/agent/undo` (`{runId}`). El generador de un solo paso (2.10.11, `POST /api/admin/discord/cmds/ai`) sigue disponible en la API.
 
 **Botones (2.10.11):** `$addButton[etiqueta;id;estilo;emoji]` y `$addLinkButton[etiqueta;url]` añaden botones al mensaje (hasta 25). Lo que pasa al pulsarlos se programa en un comando de nuevo tipo **Botón** cuyo activador es el id del botón (exacto o «empieza así», para mandar datos en el id: `rol:123`). Dentro puedes usar `$buttonId`, `$buttonArg[n]`, `$updateMessage` (edita el mensaje del botón), `$clearButtons`, `$ephemeral`, etc. Los ids de SBScript llevan el prefijo interno `fcs:`, así que no chocan con los del sistema de tickets.
+
+**Menús de selección y formularios (2.18.0):** además de botones, un mensaje puede llevar menús desplegables (`$addSelect` + `$addSelectOption`, `$addUserSelect`, `$addRoleSelect`, `$addMentionableSelect`, `$addChannelSelect`) y un comando puede abrir un formulario (modal) con `$showModal[id;título]` y hasta 5 campos `$addTextInput`. Lo que pasa al elegir o enviar se programa en comandos de los nuevos tipos **Selección** y **Formulario**, cuyo activador es el id (exacto o «empieza así»). Se leen con `$selectValues`, `$selectValue[n]`, `$selectCount`, `$modalValue[campo]`, `$modalArg[n]`… Un menú ocupa una fila (máx. 5 filas con los botones) y `$showModal` debe ser la única respuesta del comando. Las opciones slash admiten ahora `mentionable`, `attachment` y respuestas fijas (`Elige color ~ rojo,azul`). Guía completa en la wiki: «Menús de selección y formularios».
 
 **Seguridad:** lo que escribe un usuario nunca se interpreta como código; los operadores de las condiciones solo cuentan si los escribió el autor; hay límites de pasos (4000), de tiempo (4 s), de bucles, de tamaño (20 000 caracteres por comando, 200 comandos, 60 slash) y de variables guardadas (20 000). Las funciones de moderación comprueban que **quien usa el comando** tenga el permiso de Discord correspondiente. Las menciones masivas (`@everyone` y roles) están desactivadas en las respuestas.
 

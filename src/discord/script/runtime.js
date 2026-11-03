@@ -30,7 +30,7 @@ async function node(ctx, n) {
   }
   if (n.t === "if") { for (const b of n.branches) if (await cond(ctx, b.cond)) return ev(ctx, b.body); return n.else ? ev(ctx, n.else) : ""; }
   if (n.t === "for") {
-    const [v, a, b, st] = await Promise.all(n.args.map(x => ev(ctx, x))); let from = num(a), to = num(b), step = st === undefined ? 1 : num(st);
+    const fa = []; for (const x of n.args) fa.push(await ev(ctx, x)); const [v, a, b, st] = fa; // en orden (antes se evaluaban a la vez) let from = num(a), to = num(b), step = st === undefined ? 1 : num(st);
     if (!v || isNaN(from) || isNaN(to) || isNaN(step) || !step) throw Error("$for[variable;desde;hasta;paso] necesita números válidos");
     let out = "", k = 0;
     for (let x = from; step > 0 ? x <= to : x >= to; x += step) {
@@ -97,14 +97,30 @@ async function cond(ctx, nodes) {
 
 // Ejecuta un comando ya compilado. ctx lo prepara custom.js (quién lo usa, dónde, opciones…).
 async function exec(compiled, ctx) {
-  Object.assign(ctx, { http: undefined, json: undefined, steps: 0, deadline: Date.now() + (ctx.limitMs || 4000), vars: new Map(), sim: ctx.sim || [], out: { embed: {}, fields: [], files: [], buttons: [], update: false, clearButtons: false, eph: false, del: false, reactions: [], ai: 0 } });
+  Object.assign(ctx, { http: undefined, json: undefined, steps: 0, deadline: Date.now() + (ctx.limitMs || 4000), vars: new Map(), sim: ctx.sim || [], out: { embed: {}, fields: [], files: [], buttons: [], selects: [], lastSel: null, modalDef: null, inputs: [], modal: null, update: false, clearButtons: false, eph: false, del: false, reactions: [], ai: 0 } });
   try {
     const text = (await ev(ctx, compiled.ast)).replace(/\n{3,}/g, "\n\n").trim();
+    finish(ctx.out);
     return { content: text.slice(0, 2000), out: ctx.out, sim: ctx.sim };
   } catch (e) {
     if (e.stop) return { content: e.msg, out: ctx.out, sim: ctx.sim, stopped: true };
     const at = e.at != null ? compiled.lineOf(e.at) : null;
     return { error: e.message + (at ? ` (línea ${at.line})` : ""), out: ctx.out, sim: ctx.sim };
+  }
+}
+
+// Comprueba los menús y construye el formulario (modal) con lo que fue dejando el script
+function finish(o) {
+  for (const s of o.selects) {
+    if (s.type !== 3) continue;
+    const n = (s.options || []).length, id = s.custom_id.slice(4);
+    if (!n) throw Error(`El menú «${id}» no tiene opciones: añade al menos una con $addSelectOption`);
+    if (s.max_values > n) s.max_values = n; if (s.min_values > s.max_values) s.min_values = s.max_values;
+  }
+  if (!o.modalDef && o.inputs.length) throw Error("Hay campos con $addTextInput pero falta $showModal[id;título] para abrir el formulario");
+  if (o.modalDef) {
+    if (!o.inputs.length) throw Error("El formulario no tiene campos: añade al menos uno con $addTextInput");
+    o.modal = { custom_id: "sbs:" + o.modalDef.id, title: o.modalDef.title, components: o.inputs.map(t => ({ type: 1, components: [t] })) };
   }
 }
 
@@ -123,10 +139,10 @@ function payload(r) {
     p.embeds = [e];
   }
   if (o.files.length) p.files = o.files.slice(0, 3).map(f => ({ attachment: f.data, name: f.name }));
-  if (o.buttons.length) {
-    const rows = []; for (let k = 0; k < o.buttons.length && k < 25; k += 5) rows.push({ type: 1, components: o.buttons.slice(k, k + 5) });
-    p.components = rows;
-  } else if (o.clearButtons) p.components = [];
+  const rows = []; for (let k = 0; k < o.buttons.length && k < 25; k += 5) rows.push({ type: 1, components: o.buttons.slice(k, k + 5) });
+  for (const s of o.selects) rows.push({ type: 1, components: [s] }); // cada menú ocupa una fila entera
+  if (rows.length) p.components = rows.slice(0, 5);
+  else if (o.clearButtons) p.components = [];
   return p;
 }
 

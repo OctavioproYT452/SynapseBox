@@ -11,12 +11,13 @@ const { setting } = require("../lib/settings");
 
 const DIR = path.join(DATA, "discord-commands"), EXT = ".sbs", OLD_EXT = ".fcs"; // .fcs: formato anterior, se lee y se migra al guardar
 const MAX_CMDS = 200, MAX_CODE = 20000, MAX_SLASH = 60;
-const TYPES = ["slash", "prefijo", "mensaje", "boton"], ACCESS = ["todos", "vinculados", "admin", "gestores"], MATCH = ["exacta", "contiene", "empieza"];
-const OPT = { string: 3, integer: 4, boolean: 5, user: 6, channel: 7, role: 8, number: 10 };
+const TYPES = ["slash", "prefijo", "mensaje", "boton", "seleccion", "modal"], INTER = ["boton", "seleccion", "modal"], ACCESS = ["todos", "vinculados", "admin", "gestores"], MATCH = ["exacta", "contiene", "empieza"];
+const OPT = { string: 3, integer: 4, boolean: 5, user: 6, channel: 7, role: 8, mentionable: 9, number: 10, attachment: 11 };
+const CHOICE_OK = new Set(["string", "integer", "number"]);
 // Nombres que ya usa el propio bot (un comando propio no puede llamarse igual)
 const RESERVED = new Set("ayuda vincular desvincular cuenta archivos buscar enlaces ia version ping servidorinfo usuarioinfo avatar config servidor usuarios usuario suspender reactivar anuncio registro actualizar bienvenida dado moneda elegir encuesta recientes favoritos comandos limpiar".split(" "));
 
-let cmds = null, folders = new Set(), slash = new Map(), pre = new Map(), trig = [], btns = [], D = null, hook = null;
+let cmds = null, folders = new Set(), slash = new Map(), pre = new Map(), trig = [], btns = [], sels = [], mods = [], D = null, hook = null;
 const seg = s => String(s || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 32);
 function dirOf(folder) {
   const parts = String(folder || "").split("/").map(seg).filter(Boolean);
@@ -37,19 +38,24 @@ function split(text) {
 function norm(m) {
   const o = {
     tipo: TYPES.includes(m.tipo) ? m.tipo : "slash", descripcion: String(m.descripcion || "").slice(0, 100), acceso: ACCESS.includes(m.acceso) ? m.acceso : "todos",
-    activo: !/^(no|false|0)$/i.test(String(m.activo ?? "si")), alias: [], opciones: [], disparador: m.tipo === "boton" ? String(m.disparador || "").replace(/^(?:fcs|sbs):/, "").replace(/[^A-Za-z0-9_:.-]/g, "").slice(0, 80) : String(m.disparador || "").slice(0, 100), coincidencia: MATCH.includes(m.coincidencia) ? m.coincidencia : "contiene",
+    activo: !/^(no|false|0)$/i.test(String(m.activo ?? "si")), alias: [], opciones: [], disparador: INTER.includes(m.tipo) ? String(m.disparador || "").replace(/^(?:fcs|sbs):/, "").replace(/[^A-Za-z0-9_:.-]/g, "").slice(0, 80) : String(m.disparador || "").slice(0, 100), coincidencia: MATCH.includes(m.coincidencia) ? m.coincidencia : "contiene",
   };
   const al = Array.isArray(m.alias) ? m.alias : String(m.alias || "").split(",");
   o.alias = [...new Set(al.map(seg).filter(Boolean))].slice(0, 5);
   const ops = Array.isArray(m.opciones) ? m.opciones : String(m.opciones || "").split("|").map(s => s.trim()).filter(Boolean).map(s => { const [name, type, req, ...d] = s.split(":"); return { name, type, required: /^(si|true|1)$/i.test((req || "").trim()), desc: d.join(":") }; });
-  o.opciones = ops.slice(0, 25).map(x => ({ name: seg(x.name).replace(/-/g, "_").slice(0, 32), type: OPT[x.type] ? x.type : "string", required: !!x.required, desc: String(x.desc || "").trim().slice(0, 100) || "Opción" })).filter(x => x.name);
+  o.opciones = ops.slice(0, 25).map(x => {
+    const type = OPT[x.type] ? x.type : "string", raw = Array.isArray(x.choices) ? x.choices.join(",") : "", dm = /^(.*?)\s*~\s*(.+)$/.exec(String(x.desc || "")); // «descripción ~ rojo,azul»: respuestas fijas
+    let choices = CHOICE_OK.has(type) ? [...new Set((raw || dm?.[2] || "").split(",").map(v => v.trim().slice(0, 100)).filter(Boolean))].slice(0, 25) : [];
+    if (type !== "string") choices = choices.filter(v => Number.isFinite(Number(v)) && (type === "number" || Number.isInteger(Number(v))));
+    return { name: seg(x.name).replace(/-/g, "_").slice(0, 32), type, required: !!x.required, desc: String(dm ? dm[1] : x.desc || "").trim().slice(0, 100) || "Opción", choices };
+  }).filter(x => x.name);
   return o;
 }
 function serialize(m, code) {
   const h = [`//@ tipo: ${m.tipo}`, `//@ descripcion: ${m.descripcion.replace(/\n/g, " ")}`, `//@ acceso: ${m.acceso}`, `//@ activo: ${m.activo ? "si" : "no"}`];
-  if (m.tipo === "slash" && m.opciones.length) h.push(`//@ opciones: ${m.opciones.map(o => `${o.name}:${o.type}:${o.required ? "si" : "no"}:${o.desc.replace(/[|\n]/g, " ")}`).join(" | ")}`);
+  if (m.tipo === "slash" && m.opciones.length) h.push(`//@ opciones: ${m.opciones.map(o => `${o.name}:${o.type}:${o.required ? "si" : "no"}:${o.desc.replace(/[|\n~]/g, " ")}${o.choices?.length ? " ~ " + o.choices.join(",") : ""}`).join(" | ")}`);
   if (m.tipo === "prefijo" && m.alias.length) h.push(`//@ alias: ${m.alias.join(", ")}`);
-  if (m.tipo === "mensaje" || m.tipo === "boton") h.push(`//@ disparador: ${m.disparador.replace(/\n/g, " ")}`, `//@ coincidencia: ${m.coincidencia}`);
+  if (m.tipo === "mensaje" || INTER.includes(m.tipo)) h.push(`//@ disparador: ${m.disparador.replace(/\n/g, " ")}`, `//@ coincidencia: ${m.coincidencia}`);
   return h.join("\n") + "\n\n" + code.replace(/\r\n/g, "\n");
 }
 // Nombres de todas las funciones que usa un árbol (para saber si el comando llama a la IA o es efímero)
@@ -64,7 +70,8 @@ function usedNames(ast, set = new Set()) {
 }
 function compile(c) {
   const p = parse(c.code, QUIET); check(p.ast, p.errors, p.lineOf, FN); c.ast = p.ast; c.lineOf = p.lineOf; c.errors = p.errors;
-  c.uses = usedNames(p.ast); c.slow = [...c.uses].some(n => n.startsWith("ai") && n !== "aiavailable" && n !== "aipersona"); // la IA tarda: hay que "pensar" antes de contestar
+  c.uses = usedNames(p.ast); c.modal = c.uses.has("showmodal"); // un formulario debe ser LA primera respuesta: no se puede "pensar" antes
+  c.slow = !c.modal && [...c.uses].some(n => n.startsWith("ai") && n !== "aiavailable" && n !== "aipersona"); // la IA tarda: hay que "pensar" antes de contestar
   return c;
 }
 
@@ -84,13 +91,15 @@ function load() {
 const ensure = () => { if (!cmds) load(); };
 
 function index() {
-  slash = new Map(); pre = new Map(); trig = []; btns = [];
+  slash = new Map(); pre = new Map(); trig = []; btns = []; sels = []; mods = [];
   for (const c of cmds.values()) {
     if (!c.meta.activo) continue;
     if (c.meta.tipo === "slash") { if (!RESERVED.has(c.name)) slash.set(c.name, c); }
     else if (c.meta.tipo === "prefijo") { for (const n of [c.name, ...c.meta.alias]) if (!pre.has(n)) pre.set(n, c); }
     else if (c.meta.tipo === "mensaje" && c.meta.disparador) trig.push(c);
     else if (c.meta.tipo === "boton" && c.meta.disparador) btns.push(c);
+    else if (c.meta.tipo === "seleccion" && c.meta.disparador) sels.push(c);
+    else if (c.meta.tipo === "modal" && c.meta.disparador) mods.push(c);
   }
 }
 function changed() { index(); try { hook?.(); } catch { } }
@@ -112,9 +121,9 @@ function validate(folder, name, meta, code, oldId) {
   }
   if (meta.tipo === "prefijo") for (const n of [name, ...meta.alias]) { const o = others.find(c => c.meta.tipo === "prefijo" && c.meta.activo && [c.name, ...c.meta.alias].includes(n)); if (o && meta.activo) throw Error(`«${n}» ya lo usa el comando ${o.id}`); }
   if (meta.tipo === "mensaje" && !meta.disparador.trim()) throw Error("Escribe el texto que activa el comando");
-  if (meta.tipo === "boton") {
-    if (!meta.disparador) throw Error("Escribe el id del botón que lo activa (letras, números y _ : . -)");
-    const o = others.find(c => c.meta.tipo === "boton" && c.meta.activo && c.meta.disparador === meta.disparador && c.meta.coincidencia === meta.coincidencia); if (o && meta.activo) throw Error(`El comando ${o.id} ya responde a ese botón`);
+  if (INTER.includes(meta.tipo)) {
+    if (!meta.disparador) throw Error({ boton: "Escribe el id del botón que lo activa", seleccion: "Escribe el id del menú que lo activa", modal: "Escribe el id del formulario que lo activa" }[meta.tipo] + " (letras, números y _ : . -)");
+    const o = others.find(c => c.meta.tipo === meta.tipo && c.meta.activo && c.meta.disparador === meta.disparador && c.meta.coincidencia === meta.coincidencia); if (o && meta.activo) throw Error(`El comando ${o.id} ya responde a ese id`);
   }
   return id;
 }
@@ -152,7 +161,7 @@ function checkCode(code, meta) { const c = compile({ code: String(code || "").sl
 // ---------- registro de comandos slash ----------
 const slashJson = () => [...slash.values()].slice(0, MAX_SLASH).map(c => ({
   name: c.name, description: (c.meta.descripcion || "Comando personalizado").slice(0, 100), dm_permission: false,
-  options: c.meta.opciones.map(o => ({ type: OPT[o.type], name: o.name, description: o.desc, required: o.required })),
+  options: c.meta.opciones.map(o => ({ type: OPT[o.type], name: o.name, description: o.desc, required: o.required, ...(o.choices?.length ? { choices: o.choices.map(v => ({ name: v, value: o.type === "string" ? v : Number(v) })) } : {}) })),
 }));
 
 // ---------- ejecución ----------
@@ -174,38 +183,50 @@ async function runSlash(i) {
   const sb = userOf(i.user.id);
   if (!allowed(c, sb, i.member)) { await i.reply({ content: NOPE[c.meta.acceso], flags: EPH }); return true; }
   const opts = new Map(), argv = [], mentions = [];
-  for (const o of c.meta.opciones) { const v = i.options.get(o.name)?.value; if (v === undefined || v === null) continue; opts.set(o.name, String(v)); argv.push(String(v)); if (o.type === "user") mentions.push(String(v)); }
+  for (const o of c.meta.opciones) {
+    const v = o.type === "attachment" ? i.options.getAttachment(o.name)?.url : i.options.get(o.name)?.value;
+    if (v === undefined || v === null) continue; opts.set(o.name, String(v)); argv.push(String(v)); if (o.type === "user" || o.type === "mentionable") mentions.push(String(v));
+  }
   let deferred = false;
   if (c.slow) { await i.deferReply(c.uses.has("ephemeral") ? { flags: EPH } : {}); deferred = true; }
   const send = o => deferred ? i.editReply((delete o.flags, o)) : i.reply(o);
   const r = await R.exec(c, { kind: "slash", D, client: i.client, inter: i, user: i.user, member: i.member, guild: i.guild, channel: i.channel, argv, opts, mentions, cmd: { id: c.id, name: c.name }, prefix: prefix(), sb });
-  if (r.error) return void await send({ content: "⚠️ Error en el comando: " + r.error.slice(0, 1500), flags: EPH }), true;
+  if (r.error) { await send({ content: "⚠️ Error en el comando: " + r.error.slice(0, 1500), flags: EPH }); return true; }
+  if (r.out.modal && !r.stopped) { await i.showModal(r.out.modal); return true; }
   const p = R.payload(r);
   if (r.stopped || r.out.eph) p.flags = EPH;
-  if (!p.content && !p.embeds) { p.content = r.stopped ? "Comando cancelado." : "✓"; p.flags = EPH; }
+  if (!p.content && !p.embeds && !p.files && !p.components?.length) { p.content = r.stopped ? "Comando cancelado." : "✓"; p.flags = EPH; }
   p.allowedMentions = { parse: ["users"] };
   await send(p); return true;
 }
 
-// Botón de un mensaje de SBScript (id «sbs:…»; los antiguos «fcs:…» también funcionan): se busca el comando de tipo «boton» cuyo activador coincide
-async function runButton(i) {
-  ensure(); const bid = String(i.customId).slice(4), EPH = D.MessageFlags.Ephemeral;
-  const c = btns.find(b => b.meta.coincidencia === "exacta" ? bid === b.meta.disparador : b.meta.coincidencia === "empieza" ? bid.startsWith(b.meta.disparador) : bid.includes(b.meta.disparador));
-  if (!c) return void await i.reply({ content: "Este botón ya no hace nada.", flags: EPH });
+// Botones, menús de selección y formularios (modales) de SBScript: su id empieza por «sbs:» (los antiguos «fcs:» también funcionan).
+// Se busca el comando del tipo que corresponde (Botón, Selección o Formulario) cuyo activador coincide con el id.
+const WHAT = { boton: ["Este botón ya no hace nada.", "button"], seleccion: ["Este menú ya no hace nada.", "select"], modal: ["Este formulario ya no está disponible.", "modal"] };
+async function runComponent(i, tipo) {
+  ensure(); const bid = String(i.customId).slice(4), EPH = D.MessageFlags.Ephemeral, [gone, kind] = WHAT[tipo];
+  const list = tipo === "boton" ? btns : tipo === "seleccion" ? sels : mods;
+  const c = list.find(b => b.meta.coincidencia === "exacta" ? bid === b.meta.disparador : b.meta.coincidencia === "empieza" ? bid.startsWith(b.meta.disparador) : bid.includes(b.meta.disparador));
+  if (!c) return void await i.reply({ content: gone, flags: EPH });
   if (spam(i.user.id)) return void await i.reply({ content: "Más despacio: espera un segundo.", flags: EPH });
   const sb = userOf(i.user.id);
   if (!allowed(c, sb, i.member)) return void await i.reply({ content: NOPE[c.meta.acceso], flags: EPH });
-  const upd = c.uses.has("updatemessage"); let deferred = false;
+  const upd = c.uses.has("updatemessage") && (tipo !== "modal" || !!i.isFromMessage?.()); let deferred = false; // un formulario solo puede editar el mensaje si se abrió desde un botón o menú
   if (c.slow) { if (upd) await i.deferUpdate(); else await i.deferReply(c.uses.has("ephemeral") ? { flags: EPH } : {}); deferred = true; }
-  const r = await R.exec(c, { kind: "button", D, client: i.client, inter: i, btn: bid, user: i.user, member: i.member, guild: i.guild, channel: i.channel, argv: [], opts: new Map(), mentions: [], cmd: { id: c.id, name: c.name }, prefix: prefix(), sb });
+  const ctx = { kind, D, client: i.client, inter: i, btn: bid, user: i.user, member: i.member, guild: i.guild, channel: i.channel, argv: [], opts: new Map(), mentions: [], cmd: { id: c.id, name: c.name }, prefix: prefix(), sb };
+  if (tipo === "seleccion") ctx.sel = { values: [...(i.values || [])] };
+  if (tipo === "modal") ctx.modal = { fields: new Map([...i.fields.fields.values()].map(f => [f.customId, String(f.value ?? "")])) };
+  const r = await R.exec(c, ctx);
   if (r.error) { const o = { content: "⚠️ Error en el comando: " + r.error.slice(0, 1500), flags: EPH }; return void await (deferred ? (upd ? i.followUp(o) : i.editReply((delete o.flags, o))) : i.reply(o)); }
+  if (r.out.modal && !r.stopped) return void await i.showModal(r.out.modal);
   const p = R.payload(r); p.allowedMentions = { parse: ["users"] };
   if (!p.content && !p.embeds && !p.files && !p.components) { if (deferred && upd) return; if (r.stopped || !r.out.update) { const o = { content: r.stopped ? "Cancelado." : "✓", flags: EPH }; return void await (deferred ? i.followUp(o) : i.reply(o)); } }
   if (r.stopped) { const o = { content: r.content || "Cancelado.", flags: EPH }; return void await (deferred ? i.followUp(o) : i.reply(o)); }
-  if (r.out.update) { if (deferred) await i.editReply(p); else await i.update(p); return; }
+  if (r.out.update && upd) { if (deferred) await i.editReply(p); else await i.update(p); return; }
   if (r.out.eph) p.flags = EPH;
   if (deferred) { delete p.flags; await i.editReply(p); } else await i.reply(p);
 }
+const runButton = i => runComponent(i, "boton");
 
 async function onMessage(m) {
   if (m.author.bot || !m.guild || !m.content || (!pre.size && !trig.length)) return;
@@ -222,7 +243,7 @@ async function onMessage(m) {
   const r = await R.exec(c, { kind: c.meta.tipo === "prefijo" ? "prefix" : "message", D, client: m.client, msg: m, user: m.author, member: m.member, guild: m.guild, channel: m.channel, argv, opts: new Map(), mentions: [...m.mentions.users.keys()], cmd: { id: c.id, name: c.name }, prefix: pf, sb });
   const box = { allowedMentions: { parse: ["users"], repliedUser: false } };
   if (r.error) return void await m.reply({ ...box, content: (sb?.is_admin ? "⚠️ Error en el comando: " + r.error : "Ocurrió un error en este comando.").slice(0, 1500) }).catch(() => { });
-  const p = { ...R.payload(r), ...box }; if (!p.content && !p.embeds && !p.files) { if (r.out.del) m.delete().catch(() => { }); return; }
+  const p = { ...R.payload(r), ...box }; if (!p.content && !p.embeds && !p.files && !p.components?.length) { if (r.out.del) m.delete().catch(() => { }); return; }
   if (r.out.del) { m.delete().catch(() => { }); await m.channel.send(p).catch(() => { }); } else await m.reply(p).catch(() => { });
 }
 
@@ -240,11 +261,13 @@ async function dry(code, meta, { args = "", options = {}, sb = null } = {}) {
   if (c.errors.length) return { errors: c.errors };
   const user = { id: "100000000000000001", username: "tu_usuario", globalName: "Tú", bot: false, displayAvatarURL: () => "https://cdn.discordapp.com/embed/avatars/0.png", send: async () => { } };
   const opts = new Map(Object.entries(options).map(([k, v]) => [k, String(v)])), argv = c.meta.tipo === "slash" ? [...opts.values()] : String(args).split(/\s+/).filter(Boolean);
-  const r = await R.exec(c, { kind: "test", dry: true, btn: c.meta.tipo === "boton" ? String(args || c.meta.disparador || "id").trim() : undefined, user, member: { displayName: "Tú", permissions: { has: () => true }, roles: { cache: { has: () => true } } }, guild: { id: "200000000000000002", name: "Servidor de prueba", memberCount: 42 }, channel: { id: "300000000000000003", name: "general" }, argv, opts, mentions: [...String(args).matchAll(/<@!?(\d{5,})>|(?<!\d)(\d{17,20})(?!\d)/g)].map(m => m[1] || m[2]).slice(0, 10), cmd: { id: "prueba", name: "prueba" }, prefix: prefix(), sb, limitMs: 3000 });
-  return { errors: [], error: r.error, stopped: r.stopped, message: r.error ? null : preview(R.payload(r)), ephemeral: !!r.out.eph, simulated: r.sim, deletes: r.out.del };
+  const tp = c.meta.tipo, inter = INTER.includes(tp), parts = tp === "modal" ? Object.fromEntries(String(args).split("|").map(x => x.split("=")).filter(x => x[0].trim()).map(([k, ...v]) => [k.trim(), v.join("=").trim()])) : {};
+  const r = await R.exec(c, { kind: "test", testType: tp, dry: true, btn: inter ? String((tp === "boton" ? args : "") || c.meta.disparador || "id").trim() : undefined, sel: tp === "seleccion" ? { values: String(args).split(",").map(x => x.trim()).filter(Boolean) } : undefined, modal: tp === "modal" ? { fields: new Map(Object.entries(parts)) } : undefined, user, member: { displayName: "Tú", permissions: { has: () => true }, roles: { cache: { has: () => true } } }, guild: { id: "200000000000000002", name: "Servidor de prueba", memberCount: 42 }, channel: { id: "300000000000000003", name: "general" }, argv, opts, mentions: [...String(args).matchAll(/<@!?(\d{5,})>|(?<!\d)(\d{17,20})(?!\d)/g)].map(m => m[1] || m[2]).slice(0, 10), cmd: { id: "prueba", name: "prueba" }, prefix: prefix(), sb, limitMs: 3000 });
+  const modal = !r.error && r.out.modal ? { title: r.out.modal.title, id: r.out.modal.custom_id.slice(4), inputs: r.out.modal.components.map(x => x.components[0]) } : null;
+  return { errors: [], error: r.error, stopped: r.stopped, message: r.error ? null : preview(R.payload(r)), modal, ephemeral: !!r.out.eph, simulated: r.sim, deletes: r.out.del };
 }
 
 const init = (d, reserved, onChange) => { D = d; hook = onChange; for (const n of reserved || []) RESERVED.add(n); ensure(); };
 const setPrefix = p => { p = String(p || "").trim(); if (!/^\S{1,3}$/.test(p)) throw Error("El prefijo debe tener de 1 a 3 caracteres sin espacios"); store.setS("discord_prefix", p); };
 
-module.exports = { normMeta: norm, slugName: seg, init, list, read, save, remove, folder, checkCode, dry, slashJson, runSlash, runButton, onMessage, prefix, setPrefix, docs: () => DOCS, hasSlash: n => { ensure(); return slash.has(n); }, hasMessages: () => { ensure(); return pre.size > 0 || trig.length > 0; }, limits: { cmds: MAX_CMDS, code: MAX_CODE, slash: MAX_SLASH }, OPT_TYPES: Object.keys(OPT), ACCESS, MATCH };
+module.exports = { normMeta: norm, slugName: seg, init, list, read, save, remove, folder, checkCode, dry, slashJson, runSlash, runButton, runComponent, onMessage, prefix, setPrefix, docs: () => DOCS, hasSlash: n => { ensure(); return slash.has(n); }, hasMessages: () => { ensure(); return pre.size > 0 || trig.length > 0; }, limits: { cmds: MAX_CMDS, code: MAX_CODE, slash: MAX_SLASH }, OPT_TYPES: Object.keys(OPT), ACCESS, MATCH };

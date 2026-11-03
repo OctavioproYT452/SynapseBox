@@ -1,29 +1,37 @@
-# Versión 2.17.0
+# Versión 2.18.0
 
-Nuevo **agente de IA** en el editor de comandos de SBScript: un chat en streaming, parecido al de Claude, que ve tus comandos como archivos y puede crearlos, editarlos, leerlos, probarlos y revisarlos, varios a la vez con un solo mensaje. Además, el editor se ha rediseñado para convivir con el chat. No se ha quitado nada: el generador de un solo paso sigue disponible en la API.
+Los comandos de SBScript pueden usar **menús de selección** y **formularios (modales)**, y el **agente de IA ya no se detiene a mitad de trabajo**: sigue hasta avisar de que ha terminado. Incluye correcciones de errores y opciones slash nuevas. No se ha quitado nada: los comandos de la 2.17.0 siguen funcionando igual.
 
-## Agente de IA (botón ✨ IA, o `Ctrl+Mayús+I`)
-- **Streaming en directo:** el texto aparece según se escribe y cada herramienta que usa es una tarjeta que se va completando (preparando → ejecutando → hecho / con errores), con el diff de los cambios y accesos directos para abrir cada comando.
-- **Los comandos son archivos:** herramientas para listar, leer (varios a la vez), buscar (como grep), crear, editar con reemplazos exactos, reescribir, mover, borrar, **revisar la sintaxis**, **probar** (simulación, no toca Discord) y consultar la wiki.
-- **Varios comandos con un solo mensaje:** encadena hasta 14 pasos y 25 escrituras por mensaje (por ejemplo, un panel con botones y los comandos de botón que lo hacen funcionar).
-- **Se corrige sola:** cada escritura devuelve los errores del analizador y el agente los arregla antes de responder.
-- **Cambios reales y reversibles:** lo que crea o edita se guarda en el servidor, la lista y el editor se actualizan al momento y cada respuesta trae un botón **Deshacer** (disponible dos horas, también tras pulsar **Detener**). Si hay cambios sin guardar en el comando abierto, no se pisan: se avisa.
-- **Contexto del editor:** con «Comando abierto» marcado, el agente conoce el comando que editas y tu borrador sin guardar.
-- **Gasta mucho menos:** un uso del límite de IA por mensaje y unos 2 500 tokens de instrucciones (reglas + índice de nombres de funciones) en lugar de ~22 000; los detalles y ejemplos de la wiki los pide solo cuando los necesita. La conversación solo reenvía texto, no los resultados de las herramientas.
-- **Seguridad:** solo administradores; solo toca comandos de SBScript (nunca archivos del servidor); las pruebas son simulaciones; el contenido de los comandos se trata como datos, no como órdenes.
-- Nueva guía en la wiki: **Agente de IA del editor (2.17.0)**.
+## Menús de selección (nuevos tipos de componente)
+- `$addSelect[id;textoGuía;mín;máx]` + `$addSelectOption[etiqueta;valor;descripción;emoji;marcada]`: menú de textos (hasta 25 opciones).
+- `$addUserSelect`, `$addRoleSelect`, `$addMentionableSelect` y `$addChannelSelect` (este con filtro de tipos: `texto,voz,categoria,anuncios,escenario,foro`): lo elegido llega como IDs.
+- Un menú ocupa una fila; un mensaje admite 5 filas entre botones y menús (con avisos claros si te pasas).
+- `$clearSelects` y `$clearComponents` (quita botones y menús).
+- Nuevo tipo de comando **Selección**: se ejecuta al elegir; su activador es el id del menú (exacto o «empieza así»). Lee la elección con `$selectValues[sep]`, `$selectValue[n]`, `$selectCount`, `$selectId`, `$selectArg[n]` e `$isSelect`. Admite `$updateMessage`.
 
-## Diseño del editor
-- Tres columnas (comandos · editor · agente) con el ancho del chat **ajustable arrastrando** el borde (se recuerda).
-- Con el chat abierto, la barra del editor se compacta y el panel de funciones pasa a superponerse para que el código tenga sitio; en pantallas medianas la lista de comandos se convierte en un cajón lateral.
-- En móvil el agente ocupa toda la pantalla, con el teclado y la zona segura del iPhone respetados.
-- Botón **✨ IA** también en la barra del editor y en la pantalla de inicio; respeta `prefers-reduced-motion`.
+## Formularios (modales)
+- `$showModal[id;título]` abre un formulario y `$addTextInput[id;etiqueta;corto|largo;obligatorio;mín;máx;guía;valorInicial]` añade hasta 5 campos.
+- Se abre desde un slash, un botón o un menú; debe ser la única respuesta del comando (no se pone «pensando» antes, así que no se mezcla con la IA).
+- Nuevo tipo de comando **Formulario**: se ejecuta al enviarlo; lee los campos con `$modalValue[campo]`, `$modalId`, `$modalArg[n]` e `$isModal`. Si el formulario se abrió desde un botón o menú, puede editar ese mensaje con `$updateMessage`.
+- Los selectores dentro de un formulario no se incluyen todavía (dependen de la versión de discord.js).
 
-## API
-- `POST /api/admin/discord/cmds/agent` — respuesta en NDJSON (una línea JSON por evento: `text`, `tool_prep`, `tool_prog`, `tool_start`, `tool_end`, `changed`, `done`, `error`).
-- `POST /api/admin/discord/cmds/agent/undo` — `{ "runId": "…" }` restaura los comandos tocados por esa ejecución.
+## Opciones slash
+- Nuevos tipos `mentionable` (usuario o rol) y `attachment` (archivo adjunto: `$option` devuelve su URL).
+- **Respuestas fijas** para opciones `string`, `integer` y `number`: `Elige color ~ rojo,azul,verde` en la descripción; Discord las muestra como lista.
 
-## Interno
-- `src/ai/llm.js`: nuevo `llmStream` (SSE de la API compatible con OpenAI; funciona con Grok, OpenAI, Gemini y Ollama, y vuelve a la respuesta completa si el proveedor no hace streaming).
-- `src/ai/ask.js`: `begin()` abre un uso del límite y lo devuelve si el proveedor falla antes de responder.
-- `src/discord/script/agent.js` (agente) y `public/js/dc-ai.js` + `public/dc-ai.css` (chat).
+## Agente de IA
+- **No se detiene hasta terminar:** el agente trabaja hasta que escribe una marca interna de fin (`[[FIN]]`, que el usuario no ve; se explica en su prompt). Si responde sin herramientas y sin la marca, el sistema le pide que continúe (hasta 3 avisos seguidos). Si necesita una decisión del usuario, la pregunta y cierra también con la marca.
+- Límites por mensaje ampliados: 40 pasos (antes 14), 60 escrituras (antes 25), 12 pruebas (antes 6) y 8 minutos. Si se alcanzan, el agente resume lo hecho y basta escribir «continúa».
+- **Gasta menos:** cuando la conversación crece, los resultados y códigos antiguos se recortan automáticamente; sigue contando como **un solo uso** del límite de IA por mensaje.
+- Conoce los tipos Selección y Formulario, las funciones nuevas y las opciones slash nuevas (también el generador de un solo paso).
+
+## Correcciones
+- Un comando slash o de mensaje que solo enviaba botones, menús o archivos (sin texto ni tarjeta) respondía solo «✓» en privado; ahora envía el mensaje.
+- Los comandos de mensaje/prefijo que respondían solo con componentes se descartaban sin enviar nada.
+- `$for` evaluaba sus argumentos a la vez (en paralelo); ahora lo hace en orden.
+- Errores de validación más claros para botones, menús y formularios (ids repetidos, menús sin opciones, campos sin `$showModal`…).
+
+## Editor y wiki
+- Los tipos **Selección** y **Formulario** aparecen al crear y editar comandos (etiquetas `sel` y `frm`), con plantillas y campos de prueba propios: opciones separadas por coma para menús y `campo=texto|otro=texto` para formularios.
+- La vista previa muestra los menús desplegables y cómo se vería el formulario.
+- Nueva guía en la wiki: **Menús de selección y formularios (2.18.0)**, categoría nueva «Menús y formularios» con ejemplos de cada función, y la guía del agente actualizada.

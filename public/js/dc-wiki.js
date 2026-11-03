@@ -5,7 +5,7 @@ const md=t=>esc(t).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/`([^`]+)`/g,'<
 const sig=d=>'$'+d.n+(d.a?'['+d.a+']':'');
 const slug=s=>s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-');
 let W=null,NEW=new Set(),cat='',q='';
-const GICON={inicio:ic('rocket'),sintaxis:ic('edit'),condiciones:ic('branch'),variables:ic('save'),respuestas:ic('palette'),captcha:ic('lock'),ia:ic('robot'),http:ic('globe'),opciones:ic('sliders'),permisos:ic('shield'),limites:ic('ruler'),faq:ic('wrench'),otros:ic('users'),botones:ic('radiobtn'),tickets:ic('ticket'),recetas:ic('utensils')};
+const GICON={inicio:ic('rocket'),sintaxis:ic('edit'),condiciones:ic('branch'),variables:ic('save'),respuestas:ic('palette'),captcha:ic('lock'),ia:ic('robot'),http:ic('globe'),opciones:ic('sliders'),permisos:ic('shield'),limites:ic('ruler'),faq:ic('wrench'),otros:ic('users'),botones:ic('radiobtn'),menus:ic('sliders'),tickets:ic('ticket'),recetas:ic('utensils')};
 const EMBED=`<div class="dc-anat"><div class="dc-anat-card"><div class="dc-a-row"><i>1</i><span class="dc-a-av"></span><b>Autor</b></div><div class="dc-a-row"><i>2</i><b class="dc-a-t">Título del mensaje</b></div><div class="dc-a-cols"><div><div class="dc-a-row"><i>3</i>Texto principal de la tarjeta, puede ocupar varias líneas.</div><div class="dc-a-fields"><div><i>5</i><b>Campo</b><br>valor</div><div><b>Campo</b><br>valor</div></div></div><div class="dc-a-th"><i>4</i></div></div><div class="dc-a-img"><i>6</i>Imagen grande</div><div class="dc-a-row dc-a-foot"><i>7</i><span class="dc-a-av sm"></span>Pie · hora</div></div></div>`;
 function blockHtml(b){
   if(b.t==='p')return`<p>${md(b.v)}</p>`;

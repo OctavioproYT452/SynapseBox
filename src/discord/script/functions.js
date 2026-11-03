@@ -139,7 +139,11 @@ F(C2, "sendDM", "texto  o  idUsuario;texto", "Envía un mensaje privado a quien 
 const CB = "Botones", STYLE = { azul: 1, primary: 1, blurple: 1, gris: 2, secondary: 2, grey: 2, gray: 2, verde: 3, success: 3, green: 3, rojo: 4, danger: 4, red: 4 };
 const btnEmoji = v => { v = S(v).trim(); if (!v) return undefined; const m = /^<(a?):(\w{2,32}):(\d{15,25})>$/.exec(v); if (m) return { name: m[2], id: m[3], animated: !!m[1] }; return [...v].length <= 8 && !/[\w<>:]/.test(v) ? { name: v } : undefined; };
 const BTN_ID = /^[A-Za-z0-9_:.-]{1,80}$/;
-function pushBtn(c, b) { if (c.out.buttons.length >= 25) throw Error("máximo 25 botones por mensaje"); c.out.buttons.push(b); return ""; }
+function pushBtn(c, b) {
+  if (c.out.buttons.length >= 25) throw Error("máximo 25 botones por mensaje");
+  if (Math.ceil((c.out.buttons.length + 1) / 5) + c.out.selects.length > 5) throw Error("un mensaje solo admite 5 filas de componentes (5 botones por fila; cada menú ocupa una fila entera)");
+  c.out.buttons.push(b); return "";
+}
 F(CB, "addButton", "etiqueta;id;[estilo];[emoji];[desactivado]", "Añade un botón al mensaje (máx. 25, 5 por fila). Al pulsarlo se ejecuta el comando de tipo «Botón» cuyo activador sea el id. Estilos: azul, gris, verde, rojo. Truco: pon datos en el id separados por «:» (ej. rol:123) y léelos con $buttonArg.", (c, a) => {
   const label = S(a[0]).slice(0, 80), bid = S(a[1]).trim(); if (!label && !btnEmoji(a[3])) throw Error("el botón necesita una etiqueta o un emoji"); if (!BTN_ID.test(bid)) throw Error("el id del botón solo admite letras, números y _ : . - (máx. 80)");
   const st = STYLE[S(a[2], "azul").trim().toLowerCase()]; if (!st) throw Error("estilo no válido (azul, gris, verde, rojo)");
@@ -151,10 +155,71 @@ F(CB, "addLinkButton", "etiqueta;url;[emoji]", "Añade un botón que abre un enl
   const b = { type: 2, style: 5, label, url: url.slice(0, 512) }; const em = btnEmoji(a[2]); if (em) b.emoji = em; return pushBtn(c, b);
 }, { q: true, min: 2 });
 F(CB, "clearButtons", "", "Quita todos los botones del mensaje (útil con $updateMessage).", c => { c.out.buttons = []; c.out.clearButtons = true; return ""; }, { q: true });
-F(CB, "updateMessage", "", "En un comando de tipo «Botón»: en vez de enviar un mensaje nuevo, edita el mensaje donde está el botón.", c => { c.out.update = true; return ""; }, { q: true });
+F(CB, "updateMessage", "", "En un comando de tipo «Botón» o «Selección» (o un «Formulario» abierto desde ellos): en vez de enviar un mensaje nuevo, edita el mensaje donde estaba el botón o el menú.", c => { c.out.update = true; return ""; }, { q: true });
 F(CB, "buttonId", "", "Id del botón que se ha pulsado (sin el prefijo interno).", c => c.btn ?? "");
 F(CB, "buttonArg", "n", "La parte n (desde 1) del id del botón separado por «:». Con el id rol:123, $buttonArg[1] es rol y $buttonArg[2] es 123.", (c, a) => String(c.btn ?? "").split(":")[N(a[0], 1) - 1] ?? "", { min: 1 });
-F(CB, "isButtonClick", "", "true si el comando se ejecuta porque alguien pulsó un botón.", c => c.kind === "button" || (c.kind === "test" && c.btn !== undefined));
+F(CB, "isButtonClick", "", "true si el comando se ejecuta porque alguien pulsó un botón.", c => c.kind === "button" || (c.kind === "test" && c.testType === "boton"));
+
+// =================== Menús de selección y formularios (modales) ===================
+// Los menús se envían con el mensaje (cada uno ocupa una fila). Al elegir se ejecuta un comando de tipo «Selección» cuyo activador es el id del menú.
+// Un formulario se abre con $showModal (como PRIMERA respuesta de un slash, un botón o un menú); al enviarlo se ejecuta un comando de tipo «Formulario».
+const CM = "Menús y formularios", SEL_TYPE = { 3: "string", 5: "user", 6: "role", 7: "mentionable", 8: "channel" };
+const CH_TYPES = { texto: 0, text: 0, voz: 2, voice: 2, categoria: 4, categoría: 4, category: 4, anuncios: 5, announcement: 5, escenario: 13, stage: 13, foro: 15, forum: 15 };
+function newSelect(c, a, type) {
+  const sid = S(a[0]).trim(); if (!BTN_ID.test(sid)) throw Error("el id del menú solo admite letras, números y _ : . - (máx. 80)");
+  if (c.out.selects.some(x => x.custom_id === "sbs:" + sid)) throw Error(`ya hay un menú con el id «${sid}» en este mensaje`);
+  if (Math.ceil(c.out.buttons.length / 5) + c.out.selects.length + 1 > 5) throw Error("un mensaje solo admite 5 filas de componentes (cada menú ocupa una fila entera)");
+  const mx = Math.min(25, Math.max(1, Math.trunc(N(a[3], 1)))), mn = Math.min(mx, Math.min(25, Math.max(0, Math.trunc(N(a[2], 1)))));
+  const x = { type, custom_id: "sbs:" + sid, min_values: mn, max_values: mx }; const ph = S(a[1]).slice(0, 150); if (ph) x.placeholder = ph;
+  if (R.truthy(S(a[4], "no"))) x.disabled = true;
+  if (type === 3) { x.options = []; c.out.lastSel = x; }
+  c.out.selects.push(x); return x;
+}
+const SEL_ARGS = "id;[textoGuía];[mínimo];[máximo];[desactivado]";
+F(CM, "addSelect", SEL_ARGS, "Añade un menú desplegable de textos (con las opciones que añadas justo después con $addSelectOption). Ocupa una fila del mensaje (máx. 5 filas entre botones y menús). «mínimo»/«máximo» = cuántas opciones se pueden elegir (por defecto 1). Al elegir se ejecuta el comando de tipo «Selección» cuyo activador sea el id.", (c, a) => { newSelect(c, a, 3); return ""; }, { q: true, min: 1 });
+F(CM, "addSelectOption", "etiqueta;valor;[descripción];[emoji];[marcada]", "Añade una opción al último menú creado con $addSelect (máx. 25). El «valor» es lo que recibirás en $selectValue; la etiqueta es lo que ve la persona.", (c, a) => {
+  const m = c.out.lastSel; if (!m) throw Error("primero crea un menú con $addSelect");
+  if (m.options.length >= 25) throw Error("un menú admite como máximo 25 opciones");
+  const label = S(a[0]).slice(0, 100), value = S(a[1]).slice(0, 100); if (!label || !value) throw Error("la opción necesita etiqueta y valor");
+  if (m.options.some(o => o.value === value)) throw Error(`el valor «${value}» está repetido en el menú`);
+  const o = { label, value }; const d = S(a[2]).slice(0, 100); if (d) o.description = d; const em = btnEmoji(a[3]); if (em) o.emoji = em; if (R.truthy(S(a[4], "no"))) o.default = true;
+  m.options.push(o); return "";
+}, { q: true, min: 2 });
+F(CM, "addUserSelect", SEL_ARGS, "Añade un menú para elegir usuarios del servidor. En el comando de tipo «Selección» recibes sus IDs con $selectValues.", (c, a) => { newSelect(c, a, 5); return ""; }, { q: true, min: 1 });
+F(CM, "addRoleSelect", SEL_ARGS, "Añade un menú para elegir roles del servidor (recibes sus IDs con $selectValues).", (c, a) => { newSelect(c, a, 6); return ""; }, { q: true, min: 1 });
+F(CM, "addMentionableSelect", SEL_ARGS, "Añade un menú para elegir usuarios o roles (recibes sus IDs con $selectValues).", (c, a) => { newSelect(c, a, 7); return ""; }, { q: true, min: 1 });
+F(CM, "addChannelSelect", SEL_ARGS + ";[tipos]", "Añade un menú para elegir canales (recibes sus IDs con $selectValues). «tipos» limita los canales, separados por coma: texto, voz, categoria, anuncios, escenario, foro.", (c, a) => {
+  const x = newSelect(c, a, 8), t = [...new Set(S(a[5]).split(",").map(v => v.trim().toLowerCase()).filter(Boolean).map(v => { if (!(v in CH_TYPES)) throw Error(`tipo de canal no válido «${v}» (texto, voz, categoria, anuncios, escenario, foro)`); return CH_TYPES[v]; }))];
+  if (t.length) x.channel_types = t; return "";
+}, { q: true, min: 1 });
+F(CM, "clearSelects", "", "Quita los menús de selección del mensaje (los botones se quedan).", c => { c.out.selects = []; c.out.lastSel = null; c.out.clearButtons = true; return ""; }, { q: true });
+F(CM, "clearComponents", "", "Quita TODOS los botones y menús del mensaje (útil con $updateMessage).", c => { c.out.buttons = []; c.out.selects = []; c.out.lastSel = null; c.out.clearButtons = true; return ""; }, { q: true });
+F(CM, "selectId", "", "Id del menú en el que se ha elegido (sin el prefijo interno).", c => c.btn ?? "");
+F(CM, "selectArg", "n", "La parte n (desde 1) del id del menú separado por «:». Con el id color:42, $selectArg[2] es 42.", (c, a) => String(c.btn ?? "").split(":")[N(a[0], 1) - 1] ?? "", { min: 1 });
+F(CM, "selectValues", "[separador]", "Todo lo que se eligió, unido con el separador (por defecto «,»). En menús de usuarios, roles o canales son IDs.", (c, a) => (c.sel?.values || []).join(a.length && a[0] !== "" ? a[0] : ","));
+F(CM, "selectValue", "[n]", "La opción elegida número n (por defecto la primera).", (c, a) => (c.sel?.values || [])[N(a[0], 1) - 1] ?? "");
+F(CM, "selectCount", "", "Cuántas opciones se eligieron.", c => (c.sel?.values || []).length);
+F(CM, "isSelect", "", "true si el comando se ejecuta porque alguien eligió algo en un menú.", c => c.kind === "select" || (c.kind === "test" && c.testType === "seleccion"));
+F(CM, "showModal", "id;título", "Abre un formulario (ventana con campos) a quien usó el comando, botón o menú. Debe ser la PRIMERA respuesta: el comando no puede usar la IA ni enviar otro mensaje a la vez. Añade los campos con $addTextInput (máx. 5). Al enviarlo se ejecuta el comando de tipo «Formulario» cuyo activador sea el id.", (c, a) => {
+  if (!(c.inter || c.kind === "test")) throw Error("los formularios solo se abren desde un comando slash, un botón o un menú");
+  if (c.kind === "modal" || c.testType === "modal") throw Error("un formulario no puede abrir otro formulario");
+  const mid = S(a[0]).trim(), title = S(a[1]).trim().slice(0, 45); if (!BTN_ID.test(mid)) throw Error("el id del formulario solo admite letras, números y _ : . - (máx. 80)"); if (!title) throw Error("el formulario necesita un título (máx. 45 caracteres)");
+  c.out.modalDef = { id: mid, title }; return "";
+}, { q: true, min: 2 });
+F(CM, "addTextInput", "id;etiqueta;[estilo];[obligatorio];[mínimo];[máximo];[textoGuía];[valorInicial]", "Añade un campo de texto al formulario de $showModal (máx. 5). Estilo: corto (una línea) o largo (varias líneas). Lo que escriba la persona lo lees después con $modalValue[id].", (c, a) => {
+  if (c.out.inputs.length >= 5) throw Error("un formulario admite como máximo 5 campos");
+  const fid = S(a[0]).trim(), label = S(a[1]).trim().slice(0, 45); if (!BTN_ID.test(fid)) throw Error("el id del campo solo admite letras, números y _ : . - (máx. 80)"); if (!label) throw Error("el campo necesita una etiqueta (máx. 45 caracteres)");
+  if (c.out.inputs.some(x => x.custom_id === fid)) throw Error(`el campo «${fid}» está repetido`);
+  const st = { corto: 1, short: 1, largo: 2, long: 2, parrafo: 2, paragraph: 2 }[S(a[2], "corto").trim().toLowerCase()]; if (!st) throw Error("estilo no válido (corto o largo)");
+  const mx = Math.min(4000, Math.max(1, Math.trunc(N(a[5], st === 1 ? 100 : 1000)))), mn = Math.min(mx, Math.max(0, Math.trunc(N(a[4], 0))));
+  const t = { type: 4, custom_id: fid, label, style: st, required: R.truthy(S(a[3], "si")), min_length: mn, max_length: mx };
+  const ph = S(a[6]).slice(0, 100), v = S(a[7]).slice(0, mx); if (ph) t.placeholder = ph; if (v) t.value = v;
+  c.out.inputs.push(t); return "";
+}, { q: true, min: 2 });
+F(CM, "modalValue", "idCampo", "Lo que se escribió en ese campo del formulario (vacío si lo dejó en blanco). Solo en comandos de tipo «Formulario».", (c, a) => c.modal?.fields.get(S(a[0]).trim()) ?? "", { min: 1 });
+F(CM, "modalId", "", "Id del formulario que se envió (sin el prefijo interno).", c => c.btn ?? "");
+F(CM, "modalArg", "n", "La parte n (desde 1) del id del formulario separado por «:». Útil para pasar datos: abre el formulario con $showModal[sugerencia:$userId;…] y léelo con $modalArg[2].", (c, a) => String(c.btn ?? "").split(":")[N(a[0], 1) - 1] ?? "", { min: 1 });
+F(CM, "isModal", "", "true si el comando se ejecuta porque alguien envió un formulario.", c => c.kind === "modal" || (c.kind === "test" && c.testType === "modal"));
 
 // =================== Lógica ===================
 const C3 = "Lógica y control";

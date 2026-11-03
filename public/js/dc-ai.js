@@ -1,4 +1,4 @@
-// Agente de IA del editor de SBScript (2.17.0): panel de chat lateral con streaming en directo.
+// Agente de IA del editor de SBScript (2.17.0 → 2.18.0): panel de chat lateral con streaming en directo.
 // Muestra el texto según llega y cada herramienta que usa (leer, crear, editar, revisar, probar…) como una tarjeta que se va completando.
 // El servidor envía una línea JSON por evento (POST /api/admin/discord/cmds/agent). Los cambios se guardan en el servidor y se pueden deshacer.
 (()=>{
