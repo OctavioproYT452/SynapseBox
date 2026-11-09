@@ -4,16 +4,9 @@ const { get, all, run } = require("../db");
 const { wrap } = require("../lib/utils");
 const { need } = require("../middleware/auth");
 const fsp = require("fs").promises, path = require("path");
-const { cleanTheme, userTheme, themeCss, withMu, MEDIA_DIR } = require("../services/themes");
+const { cleanTheme, userTheme, themeCss, withMu, MEDIA_DIR, checkMedia } = require("../services/themes");
 const { base, limitB } = require("../lib/paths");
 const { usage, uniq } = require("../lib/storage");
-
-// Quita del tema los medios que ya no existen en la carpeta «Temas» del usuario
-async function checkMedia(u, t) {
-  if (!t) return t;
-  for (const k of ["bgf", "btf"]) if (t[k] && !(await fsp.stat(path.join(base(u), MEDIA_DIR, t[k])).then(s => s.isFile(), () => false))) { delete t[k]; k === "bgf" ? ["bgfit", "bgdim", "bgblur"].forEach(x => delete t[x]) : ["btfit", "btdim"].forEach(x => delete t[x]); }
-  return t;
-}
 
 router.get("/theme.css", (req, res) => {
   const t = userTheme(req.user);

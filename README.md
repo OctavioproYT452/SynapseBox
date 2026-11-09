@@ -11,7 +11,7 @@ Sube, organiza, edita y comparte archivos desde cualquier dispositivo, con usuar
 
 </div>
 
-> **Versión 2.18.0.** Qué ha cambiado en esta versión: consulta [RELEASE.md](RELEASE.md).
+> **Versión 2.18.5.** Qué ha cambiado en esta versión: consulta [RELEASE.md](RELEASE.md).
 
 ---
 
@@ -354,7 +354,7 @@ Disponible en `/admin/` solo para administradores. Usa el mismo menú de usuario
 - La versión instalada está en `data/version.json`:
 
   ```json
-  { "version": "2.18.0" }
+  { "version": "2.18.5" }
   ```
 
 - Cada 2 minutos el servidor lee ese archivo local y lo compara con el `data/version.json` publicado en GitHub. Si el de GitHub es más nuevo (se comparan los números: `2.10` es mayor que `2.9`), los **administradores** ven un aviso de nueva versión con instrucciones para actualizar.
@@ -365,6 +365,8 @@ Disponible en `/admin/` solo para administradores. Usa el mismo menú de usuario
 
 ## Agente de IA (opcional)
 
+
+**Agente de IA del panel de archivos (2.18.5):** el botón **Asistente IA** (o `Ctrl+Mayús+I`) abre un chat **en streaming**: el texto aparece según se escribe y cada herramienta que usa es una tarjeta que se completa en directo. Con **un solo mensaje** (un uso del límite) puede encadenar hasta 30 pasos y no se detiene hasta acabar. Herramientas: listar y **árbol**, **leer varios archivos**, **buscar** por nombre/extensión/tamaño/antigüedad y **dentro del contenido**, **crear varios archivos** a la vez, **editar con reemplazos exactos**, añadir texto, **mover, copiar y borrar varios** a la vez (el borrado va a la papelera), **organizar una carpeta** por tipo, extensión o año, **informe de espacio**, **duplicados**, **papelera** (ver y restaurar), **favoritos** y **temas**: puede crear un tema nuevo a partir del actual (colores, redondeo, fuente, espaciado, fondo y botones de tu carpeta «Temas»), **guardarlo en Apariencia → Mis temas** y aplicarlo al momento; nunca pisa un tema existente y avisa si el contraste es malo. El chat sabe qué carpeta tienes abierta y qué has seleccionado (botón **Preguntar a la IA** en la barra de selección), tiene sugerencias rápidas y botón **Detener**. Sigue confinado a tu carpeta: no ejecuta nada y los archivos que crea nunca son ejecutables. API: `POST /api/ai/agent` (NDJSON: `text`, `tool_prep`, `tool_prog`, `tool_start`, `tool_end`, `changed`, `theme`, `done`, `error`); `POST /api/ai/chat` sigue disponible.
 Al terminar `npm install`, los instaladores (`scripts/unix/install.sh`, `scripts/windows/install.ps1`, `scripts/windows/install.bat` y los de una línea) ejecutan `tools/setup-ai.js`, que pregunta:
 
 1. **¿Quieres configurar un agente de IA?**

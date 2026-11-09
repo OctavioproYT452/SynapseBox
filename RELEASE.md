@@ -1,37 +1,23 @@
-# Versión 2.18.0
+# Versión 2.18.5
 
-Los comandos de SBScript pueden usar **menús de selección** y **formularios (modales)**, y el **agente de IA ya no se detiene a mitad de trabajo**: sigue hasta avisar de que ha terminado. Incluye correcciones de errores y opciones slash nuevas. No se ha quitado nada: los comandos de la 2.17.0 siguen funcionando igual.
+El agente de IA del panel de archivos (el que ve tus archivos y los organiza) pasa a ser un **agente de verdad**: trabaja en streaming, encadena muchos pasos con un solo mensaje, tiene muchas más herramientas y también puede **crear y aplicar temas** guardándolos en «Mis temas». No se ha quitado nada.
 
-## Menús de selección (nuevos tipos de componente)
-- `$addSelect[id;textoGuía;mín;máx]` + `$addSelectOption[etiqueta;valor;descripción;emoji;marcada]`: menú de textos (hasta 25 opciones).
-- `$addUserSelect`, `$addRoleSelect`, `$addMentionableSelect` y `$addChannelSelect` (este con filtro de tipos: `texto,voz,categoria,anuncios,escenario,foro`): lo elegido llega como IDs.
-- Un menú ocupa una fila; un mensaje admite 5 filas entre botones y menús (con avisos claros si te pasas).
-- `$clearSelects` y `$clearComponents` (quita botones y menús).
-- Nuevo tipo de comando **Selección**: se ejecuta al elegir; su activador es el id del menú (exacto o «empieza así»). Lee la elección con `$selectValues[sep]`, `$selectValue[n]`, `$selectCount`, `$selectId`, `$selectArg[n]` e `$isSelect`. Admite `$updateMessage`.
+## Agente de archivos (botón «Asistente IA» o `Ctrl+Mayús+I`)
+- **Streaming en directo:** el texto aparece según se escribe y cada herramienta es una tarjeta (preparando → ejecutando → hecho / error) que se puede abrir para ver el resultado. Botón **Detener** (lo ya hecho se mantiene).
+- **No se detiene hasta acabar:** hasta 30 pasos y 10 herramientas por paso con **un solo uso** del límite de IA por mensaje. Si el proveedor falla antes de responder, el uso se devuelve.
+- **Varios archivos a la vez:** `create_files`, `move_items`, `delete_items` (a la papelera), `read_files`.
+- **Editar sin reescribir:** `edit_file` con reemplazos exactos (falla sin cambiar nada si el texto no coincide) y `append_file`.
+- **Encontrar y entender:** `tree`, `search_files` (nombre con `*`, extensión, tamaño, antigüedad), `grep_files` (dentro del contenido), `file_info`.
+- **Limpieza y orden:** `organize_folder` (por tipo, extensión o año, con vista previa), `storage_report` (uso, tipos, carpetas y archivos más grandes, antiguos, papelera), `find_duplicates` (por contenido; nunca borra solo).
+- **Papelera y favoritos:** `list_trash`, `restore_trash`, `list_favorites`, `set_favorite`.
+- **Temas:** `list_themes`, `save_theme` (parte del tema actual o de otro guardado, crea SIEMPRE un tema nuevo en Apariencia → Mis temas, nunca pisa uno existente, lo aplica al instante y avisa si el contraste es malo) y `apply_theme`. Fondos y botones solo con archivos de tu carpeta «Temas».
+- **Contexto del panel:** sabe qué carpeta tienes abierta y qué has seleccionado («organiza esta carpeta»). Casilla para desactivarlo y botón **Preguntar a la IA** en la barra de selección.
+- **Diseño nuevo del chat:** markdown, sugerencias rápidas, indicador de uso, ir al final, pantalla completa en móvil y `prefers-reduced-motion`.
+- **Seguridad:** sigue confinado a la carpeta del usuario (sin enlaces simbólicos, sin `..`), sin ejecutar nada, archivos siempre 0644, cuota respetada y contenido de los archivos tratado como datos, no como órdenes.
 
-## Formularios (modales)
-- `$showModal[id;título]` abre un formulario y `$addTextInput[id;etiqueta;corto|largo;obligatorio;mín;máx;guía;valorInicial]` añade hasta 5 campos.
-- Se abre desde un slash, un botón o un menú; debe ser la única respuesta del comando (no se pone «pensando» antes, así que no se mezcla con la IA).
-- Nuevo tipo de comando **Formulario**: se ejecuta al enviarlo; lee los campos con `$modalValue[campo]`, `$modalId`, `$modalArg[n]` e `$isModal`. Si el formulario se abrió desde un botón o menú, puede editar ese mensaje con `$updateMessage`.
-- Los selectores dentro de un formulario no se incluyen todavía (dependen de la versión de discord.js).
+## API
+- `POST /api/ai/agent` — respuesta NDJSON (una línea JSON por evento: `text`, `tool_prep`, `tool_prog`, `tool_start`, `tool_end`, `changed`, `theme`, `done`, `error`). Cuerpo: `{ messages, context: { cwd, selected } }`.
+- `POST /api/ai/chat` sigue funcionando (sin streaming) y ahora usa las mismas herramientas.
 
-## Opciones slash
-- Nuevos tipos `mentionable` (usuario o rol) y `attachment` (archivo adjunto: `$option` devuelve su URL).
-- **Respuestas fijas** para opciones `string`, `integer` y `number`: `Elige color ~ rojo,azul,verde` en la descripción; Discord las muestra como lista.
-
-## Agente de IA
-- **No se detiene hasta terminar:** el agente trabaja hasta que escribe una marca interna de fin (`[[FIN]]`, que el usuario no ve; se explica en su prompt). Si responde sin herramientas y sin la marca, el sistema le pide que continúe (hasta 3 avisos seguidos). Si necesita una decisión del usuario, la pregunta y cierra también con la marca.
-- Límites por mensaje ampliados: 40 pasos (antes 14), 60 escrituras (antes 25), 12 pruebas (antes 6) y 8 minutos. Si se alcanzan, el agente resume lo hecho y basta escribir «continúa».
-- **Gasta menos:** cuando la conversación crece, los resultados y códigos antiguos se recortan automáticamente; sigue contando como **un solo uso** del límite de IA por mensaje.
-- Conoce los tipos Selección y Formulario, las funciones nuevas y las opciones slash nuevas (también el generador de un solo paso).
-
-## Correcciones
-- Un comando slash o de mensaje que solo enviaba botones, menús o archivos (sin texto ni tarjeta) respondía solo «✓» en privado; ahora envía el mensaje.
-- Los comandos de mensaje/prefijo que respondían solo con componentes se descartaban sin enviar nada.
-- `$for` evaluaba sus argumentos a la vez (en paralelo); ahora lo hace en orden.
-- Errores de validación más claros para botones, menús y formularios (ids repetidos, menús sin opciones, campos sin `$showModal`…).
-
-## Editor y wiki
-- Los tipos **Selección** y **Formulario** aparecen al crear y editar comandos (etiquetas `sel` y `frm`), con plantillas y campos de prueba propios: opciones separadas por coma para menús y `campo=texto|otro=texto` para formularios.
-- La vista previa muestra los menús desplegables y cómo se vería el formulario.
-- Nueva guía en la wiki: **Menús de selección y formularios (2.18.0)**, categoría nueva «Menús y formularios» con ejemplos de cada función, y la guía del agente actualizada.
+## Interno
+- `src/ai/agent.js` (agente en streaming), `src/ai/tools.js` (de 7 a 27 herramientas), `src/services/themes.js` (`checkMedia`, `saveNamedTheme`, `applyUserTheme`), `public/js/ai.js` y estilos en `public/style.css`.

@@ -33,4 +33,33 @@ const themeCss = t => { if (!t) return ""; const m = f => `/tm/${t.mu}/${encodeU
     hasM && t.bgf && `--bgs:"${m(t.bgf)}";--bgk:${isVideo(t.bgf) ? "video" : "image"};--bgfit:${t.bgfit};--bgdim:${t.bgdim / 100};--bgblur:${t.bgblur}px`,
     hasM && t.btf && `--btu:url("${m(t.btf)}");--btfit:${FIT[t.btfit]};--btdim:${t.btdim / 100}`].filter(Boolean).join(";") + "}"; };
 
-module.exports = { FONTS, COLORS, MEDIA_DIR, IMG, VID, cleanTheme, userTheme, themeCss, withMu, mediaOk, isVideo };
+// ---------- Temas del usuario (2.17.5): los usa el agente de IA del panel, con las mismas reglas que la web ----------
+const fsp = require("fs").promises, path = require("path");
+const { get, all, run } = require("../db");
+const { base } = require("../lib/paths");
+// Quita del tema los medios que ya no existen en la carpeta «Temas» del usuario
+async function checkMedia(u, t) {
+  if (!t) return t;
+  for (const k of ["bgf", "btf"]) if (t[k] && !(await fsp.stat(path.join(base(u), MEDIA_DIR, t[k])).then(s => s.isFile(), () => false))) { delete t[k]; k === "bgf" ? ["bgfit", "bgdim", "bgblur"].forEach(x => delete t[x]) : ["btfit", "btdim"].forEach(x => delete t[x]); }
+  return t;
+}
+const themeName = n => String(n || "").replace(/[\u0000-\u001f]/g, "").trim().slice(0, 40);
+const savedThemes = u => all("SELECT name,data,public FROM user_themes WHERE user_id=? ORDER BY name", u.id).map(r => ({ name: r.name, public: !!r.public, theme: cleanTheme(JSON.parse(r.data)) }));
+// Guarda un tema con nombre NUEVO (nunca pisa uno existente salvo overwrite). Devuelve { name, theme }.
+async function saveNamedTheme(u, name, theme, { overwrite = false } = {}) {
+  name = themeName(name); const t = await checkMedia(u, cleanTheme(theme));
+  if (!name) throw Error("Falta el nombre del tema");
+  if (!t) throw Error("El tema no tiene ningún valor válido (colores #rrggbb, r 0-28, font, sp, medios de la carpeta «Temas»)");
+  const has = get("SELECT 1 x FROM user_themes WHERE user_id=? AND name=?", u.id, name);
+  if (has && !overwrite) throw Error(`Ya tienes un tema llamado «${name}». Elige otro nombre`);
+  if (!has && get("SELECT COUNT(*) n FROM user_themes WHERE user_id=?", u.id).n >= 50) throw Error("Máximo 50 temas guardados");
+  run("INSERT INTO user_themes(user_id,name,data) VALUES(?,?,?) ON CONFLICT(user_id,name) DO UPDATE SET data=excluded.data", u.id, name, JSON.stringify(t));
+  return { name, theme: withMu(t, u.uuid) };
+}
+async function applyUserTheme(u, theme) {
+  const t = await checkMedia(u, cleanTheme(theme));
+  run("UPDATE users SET theme=? WHERE id=?", t && Object.keys(t).length ? JSON.stringify(t) : null, u.id); u.theme = t ? JSON.stringify(t) : null;
+  return withMu(t, u.uuid);
+}
+
+module.exports = { checkMedia, themeName, savedThemes, saveNamedTheme, applyUserTheme, FONTS, COLORS, MEDIA_DIR, IMG, VID, cleanTheme, userTheme, themeCss, withMu, mediaOk, isVideo };
