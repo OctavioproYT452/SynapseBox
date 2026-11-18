@@ -5,6 +5,7 @@ const { run, now } = require("../db");
 const { enabled, getConfig } = require("./config");
 const { status } = require("./limits");
 const { llm } = require("./llm");
+const ads = require("../services/ads");
 
 const ANON_LIMIT = 10, GLOBAL_LIMIT = 120, HOUR = 36e5;
 const anon = new Map(); let glob = [];
@@ -18,7 +19,8 @@ const clean = t => String(t || "").replace(/<@/g, "<​@").replace(/@(everyone|h
 async function ask({ u = null, did = "0", system = "", prompt, free = false }) {
   if (!enabled()) throw Error("la IA no está configurada en este servidor");
   const t = Date.now(); let refund = () => { };
-  if (!free) {
+  const ad = free ? { refund() { } } : ads.gate("discord", { u, did }); // anuncio exigido (si el admin lo activó para los comandos)
+  if (!free) { try {
     glob = recent(glob, t); if (glob.length >= GLOBAL_LIMIT) throw Error("la IA está muy ocupada, inténtalo más tarde");
     if (u) {
       const st = status(u);
@@ -31,12 +33,12 @@ async function ask({ u = null, did = "0", system = "", prompt, free = false }) {
       refund = () => { const x = anon.get(did); x?.pop(); };
     }
     glob.push(t);
-  }
+  } catch (e) { ad.refund(); throw e; } }
   try {
     const m = await llm(getConfig(), [{ role: "system", content: BASE + (system ? "\n" + String(system).slice(0, 600) : "") }, { role: "user", content: String(prompt).slice(0, 6000) }], null, 25000);
     const out = clean(m.content); if (!out) throw Error("la IA no devolvió nada");
     return out;
-  } catch (e) { refund(); if (e.provider) { console.error("[IA]", e.message, "-", e.detail); } throw Error(e.provider ? e.message : e.message); }
+  } catch (e) { refund(); ad.refund(); if (e.provider) { console.error("[IA]", e.message, "-", e.detail); } throw Error(e.provider ? e.message : e.message); }
 }
 
 // Sesión larga (varios mensajes, prompt grande, sin recortar la respuesta). Cuenta UN uso del usuario de SynapseBox aunque haya reintentos.

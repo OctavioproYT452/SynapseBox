@@ -1,23 +1,17 @@
-# Versión 2.18.5
+# Versión 2.19.0
 
-El agente de IA del panel de archivos (el que ve tus archivos y los organiza) pasa a ser un **agente de verdad**: trabaja en streaming, encadena muchos pasos con un solo mensaje, tiene muchas más herramientas y también puede **crear y aplicar temas** guardándolos en «Mis temas». No se ha quitado nada.
+Seguridad reforzada y **anuncios para usar la IA** (sin dominio propio y con retirada de dinero en el servicio que elijas). No se ha quitado nada.
 
-## Agente de archivos (botón «Asistente IA» o `Ctrl+Mayús+I`)
-- **Streaming en directo:** el texto aparece según se escribe y cada herramienta es una tarjeta (preparando → ejecutando → hecho / error) que se puede abrir para ver el resultado. Botón **Detener** (lo ya hecho se mantiene).
-- **No se detiene hasta acabar:** hasta 30 pasos y 10 herramientas por paso con **un solo uso** del límite de IA por mensaje. Si el proveedor falla antes de responder, el uso se devuelve.
-- **Varios archivos a la vez:** `create_files`, `move_items`, `delete_items` (a la papelera), `read_files`.
-- **Editar sin reescribir:** `edit_file` con reemplazos exactos (falla sin cambiar nada si el texto no coincide) y `append_file`.
-- **Encontrar y entender:** `tree`, `search_files` (nombre con `*`, extensión, tamaño, antigüedad), `grep_files` (dentro del contenido), `file_info`.
-- **Limpieza y orden:** `organize_folder` (por tipo, extensión o año, con vista previa), `storage_report` (uso, tipos, carpetas y archivos más grandes, antiguos, papelera), `find_duplicates` (por contenido; nunca borra solo).
-- **Papelera y favoritos:** `list_trash`, `restore_trash`, `list_favorites`, `set_favorite`.
-- **Temas:** `list_themes`, `save_theme` (parte del tema actual o de otro guardado, crea SIEMPRE un tema nuevo en Apariencia → Mis temas, nunca pisa uno existente, lo aplica al instante y avisa si el contraste es malo) y `apply_theme`. Fondos y botones solo con archivos de tu carpeta «Temas».
-- **Contexto del panel:** sabe qué carpeta tienes abierta y qué has seleccionado («organiza esta carpeta»). Casilla para desactivarlo y botón **Preguntar a la IA** en la barra de selección.
-- **Diseño nuevo del chat:** markdown, sugerencias rápidas, indicador de uso, ir al final, pantalla completa en móvil y `prefers-reduced-motion`.
-- **Seguridad:** sigue confinado a la carpeta del usuario (sin enlaces simbólicos, sin `..`), sin ejecutar nada, archivos siempre 0644, cuota respetada y contenido de los archivos tratado como datos, no como órdenes.
+## Anuncios para usar la IA (Administración → IA → «Anuncios»)
+- **Dos ámbitos independientes:** mensajes al asistente del panel y ejecuciones de comandos de Discord que usan `$ai…`. Cada uno puede ir en modo **Sin anuncios**, **Por uso** (cada anuncio da N mensajes/ejecuciones) o **Por tiempo** (cada anuncio da N minutos de acceso, como el «host por anuncios» de BDFD, acumulable hasta 7 días).
+- **Sin dominio:** *Acortador con API* (ShrinkMe, GPLinks, ShrinkEarn, ouo.io… con plantillas editables) o *Enlace directo* (Direct Link/smartlink de Adsterra, Monetag…). Los cobros y retiros los gestiona el servicio; SynapseBox solo muestra el anuncio y valida que se esperó. Comprueba condiciones y mínimos de pago en cada web.
+- **Reglas anti-abuso:** tiempo mínimo viendo el anuncio (validado en el servidor), un solo uso por enlace, caducidad, pausa entre anuncios, máximo diario por persona, límite por IP y los administradores pueden quedar exentos. Si la IA falla, el crédito se devuelve.
+- **Discord:** el enlace del anuncio llega en el propio mensaje de error del comando. Con cuenta vinculada el crédito es de la cuenta; si no, de la persona de Discord.
+- Nueva URL pública del servidor (obligatoria para Discord y acortadores): puede ser `https://IP:puerto` o un túnel. También vale la variable `PUBLIC_URL`.
+- Límite conocido: sin postback del servicio, un usuario decidido puede abrir el enlace de retorno tras esperar el mínimo sin completar el acortador; el tiempo mínimo y los topes diarios lo limitan.
 
-## API
-- `POST /api/ai/agent` — respuesta NDJSON (una línea JSON por evento: `text`, `tool_prep`, `tool_prog`, `tool_start`, `tool_end`, `changed`, `theme`, `done`, `error`). Cuerpo: `{ messages, context: { cwd, selected } }`.
-- `POST /api/ai/chat` sigue funcionando (sin streaming) y ahora usa las mismas herramientas.
-
-## Interno
-- `src/ai/agent.js` (agente en streaming), `src/ai/tools.js` (de 7 a 27 herramientas), `src/services/themes.js` (`checkMedia`, `saveNamedTheme`, `applyUserTheme`), `public/js/ai.js` y estilos en `public/style.css`.
+## Seguridad
+- Cabeceras nuevas: `Permissions-Policy`, `Cross-Origin-Opener/Resource-Policy`, `Strict-Transport-Security` (solo HTTPS), CSP con `frame-ancestors`, `form-action` y `connect-src`; `Cache-Control: no-store` en toda la API.
+- CSRF: también se rechazan peticiones sin `Origin` marcadas por el navegador como `cross-site`.
+- Inicio de sesión: coste constante para usuarios inexistentes (no se pueden enumerar por tiempos), límite adicional por IP y tope de longitud de credenciales.
+- Anuncios: SSRF bloqueado (solo https, sin redes internas, sin redirecciones), tokens aleatorios guardados como hash.

@@ -65,7 +65,7 @@ function aiEvent(e){const T=aiT;if(!T)return;
   else if(e.type==='changed'){clearTimeout(aiLoadT);aiLoadT=setTimeout(()=>{if(typeof load==='function')load()},500)}
   else if(e.type==='theme'){try{applyTheme(e.theme||{})}catch{}}
   else if(e.type==='done'){aiUsage(e.usage);if(e.themed)toast('Tema actualizado · lo tienes en Apariencia → Mis temas')}
-  else if(e.type==='error'){aiFlush();aiBlock(aiEl('ai-err',esc(e.message)));T.err=true}
+  else if(e.type==='error'){aiFlush();aiBlock(aiEl('ai-err',esc(e.message)+(e.ad?` <a href="/ads/go?scope=panel" target="_blank" rel="noopener">▶ Ver anuncio</a>`:'')));T.err=true}
   aiBottom()}
 function aiStop(){aiCtl?.abort()}
 function aiSetBusy(b){aiBusy=b;const s=$('#aiSend');s.innerHTML=b?'<span class="ai-sq"></span>':ic('send');s.setAttribute('aria-label',b?'Detener':'Enviar');s.classList.toggle('danger',b);$('#aip').classList.toggle('ai-busy',b);$('#aiNew').disabled=b}

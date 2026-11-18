@@ -33,6 +33,11 @@ module.exports = function createSchema(db) {
   CREATE INDEX IF NOT EXISTS trash_user ON trash(user_id, deleted_at);
   CREATE TABLE IF NOT EXISTS discord_vars(scope TEXT NOT NULL, key TEXT NOT NULL, name TEXT NOT NULL, value TEXT, PRIMARY KEY(scope,key,name));
   CREATE TABLE IF NOT EXISTS discord_welcome(guild_id TEXT PRIMARY KEY, enabled INTEGER DEFAULT 0, channel_id TEXT, message TEXT, title TEXT, embed INTEGER DEFAULT 1, updated_at INTEGER, role_id TEXT);
+  CREATE TABLE IF NOT EXISTS ad_sessions(token TEXT PRIMARY KEY, key TEXT NOT NULL, scope TEXT NOT NULL, created INTEGER NOT NULL, opened INTEGER, short TEXT, done INTEGER DEFAULT 0);
+  CREATE INDEX IF NOT EXISTS ad_sessions_key ON ad_sessions(key, done);
+  CREATE TABLE IF NOT EXISTS ad_log(key TEXT NOT NULL, scope TEXT NOT NULL, ts INTEGER NOT NULL);
+  CREATE INDEX IF NOT EXISTS ad_log_key ON ad_log(key, ts);
+  CREATE TABLE IF NOT EXISTS ad_credits(key TEXT NOT NULL, scope TEXT NOT NULL, uses INTEGER NOT NULL DEFAULT 0, until INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(key,scope));
   INSERT OR IGNORE INTO settings VALUES('allow_registration','1'),('default_quota_mb','100');
   `);
 

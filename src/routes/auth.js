@@ -11,6 +11,7 @@ const ver = require("../version");
 const ai = require("../ai");
 const tf = require("../services/twofa");
 
+const DUMMY_HASH = hash("synapsebox-dummy-password");
 router.post("/api/register", wrap(async (req, res) => {
   if (setting("allow_registration") !== "1") throw Error("El registro está desactivado");
   const { username, password, password2 } = req.body;
@@ -30,10 +31,12 @@ router.post("/api/register", wrap(async (req, res) => {
 
 router.post("/api/login", (req, res) => {
   const username = String(req.body.username || ""), password = String(req.body.password || "");
-  const key = req.ip + "|" + username.toLowerCase();
-  if (locked(key)) return res.status(429).json({ error: "Demasiados intentos. Prueba de nuevo en 15 minutos." });
+  const key = req.ip + "|" + username.toLowerCase(), ipKey = "ip|" + req.ip;
+  if (locked(key) || locked(ipKey)) return res.status(429).json({ error: "Demasiados intentos. Prueba de nuevo en 15 minutos." });
+  if (password.length > 1024 || username.length > 64) return res.status(400).json({ error: "Credenciales inválidas" });
   const u = get("SELECT * FROM users WHERE username=?", username);
-  if (!u || !verify(password, u.password_hash)) { addFail(key); return res.status(401).json({ error: "Credenciales inválidas" }); }
+  if (!u) verify(password, DUMMY_HASH); // mismo coste que un usuario real: no se puede averiguar qué usuarios existen por el tiempo de respuesta
+  if (!u || !verify(password, u.password_hash)) { addFail(key); addFail(ipKey, 20); return res.status(401).json({ error: "Credenciales inválidas" }); }
   if (u.suspended) return res.status(403).json({ error: "Cuenta suspendida. Contacta con un administrador." });
   fails.delete(key);
   if (u.totp_on) return res.json({ success: true, need2fa: true, ticket: tf.newTicket(u.id) }); // falta el segundo factor

@@ -40,6 +40,7 @@ app.use(require("./routes/shares"));
 app.use(require("./routes/collab"));
 app.use(require("./routes/share-page"));
 app.use(require("./routes/admin"));
+app.use(require("./routes/ads"));
 app.use(require("./routes/ai"));
 app.use(require("./routes/discord"));
 app.use(require("./routes/discord-custom"));
@@ -65,7 +66,7 @@ process.on("unhandledRejection", e => console.error("Aviso (promesa sin gestiona
 setInterval(() => {
   run("DELETE FROM sessions WHERE expires_at<?", now());
   run("DELETE FROM shares WHERE expires_at IS NOT NULL AND expires_at<?", now());
-  ai.purge();
+  ai.purge(); require("./services/ads").purge();
   purgeFails();
   require("./services/twofa").purgeTickets();
   require("./services/trash").sweep().catch(() => { }); // vacía de la papelera lo que superó los días indicados

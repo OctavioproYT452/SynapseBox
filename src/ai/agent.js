@@ -4,6 +4,7 @@
 const { getConfig, enabled } = require("./config");
 const { status } = require("./limits");
 const { begin } = require("./ask");
+const ads = require("../services/ads");
 const { llmStream } = require("./llm");
 const { IMPL, TOOLS, LABEL, MUTATES, THEME_TOOLS } = require("./tools");
 const { MAX_HISTORY } = require("./constants");
@@ -27,7 +28,9 @@ const p1 = s => String(s ?? "").replace(/[\u0000-\u001f]/g, " ").slice(0, 300);
 async function run(user, { messages, context = null, signal, emit }) {
   if (!enabled()) throw Error("La IA no está disponible");
   const msgs = clean(messages); if (!msgs.length || msgs[msgs.length - 1].role !== "user") throw Error("Escribe un mensaje");
-  const g = begin(user), c = getConfig(); let failed = true, changes = 0, themed = false;
+  const ad = ads.gate("panel", { u: user }); // anuncio exigido (si el admin lo activó)
+  let g; try { g = begin(user); } catch (e) { ad.refund(); throw e; }
+  const c = getConfig(); let failed = true, changes = 0, themed = false;
   let note = "";
   if (context && typeof context === "object") {
     if (typeof context.cwd === "string") note += `\nCarpeta que el usuario tiene abierta ahora: «/${p1(context.cwd).replace(/^\/+/, "")}» (si dice «esta carpeta», es esta).`;
@@ -65,7 +68,7 @@ async function run(user, { messages, context = null, signal, emit }) {
     if (changes) emit({ type: "done", changes, themed, usage: status(user), partial: true });
     if (e.provider) console.error("[IA]", e.message, "-", e.detail);
     throw e;
-  } finally { g.end(failed); }
+  } finally { g.end(failed); if (failed && !changes) ad.refund(); }
 }
 
 module.exports = { run, SYSTEM };

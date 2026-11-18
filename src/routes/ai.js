@@ -8,7 +8,7 @@ const needAI = (req, res, next) => ai.enabled() ? next() : res.status(404).json(
 router.get("/api/ai/status", need, needAI, (req, res) => res.json({ usage: ai.status(req.user) }));
 router.post("/api/ai/chat", need, needAI, async (req, res) => {
   try { res.json(await ai.chat(req.user, req.body.messages)); }
-  catch (e) { res.status(e.code || 400).json({ error: e.message }); }
+  catch (e) { res.status(e.code || 400).json({ error: e.message, ad: e.ad || undefined }); }
 });
 // Agente del panel (2.17.5): streaming NDJSON (una línea JSON por evento). Cada mensaje gasta un uso del límite.
 router.post("/api/ai/agent", need, needAI, async (req, res) => {
@@ -17,7 +17,7 @@ router.post("/api/ai/agent", need, needAI, async (req, res) => {
   const emit = ev => { if (!res.writableEnded && !res.destroyed) res.write(JSON.stringify(ev) + "\n"); };
   const b = req.body || {};
   try { await ai.agent.run(req.user, { messages: b.messages, context: b.context, signal: ac.signal, emit }); }
-  catch (e) { if (!e.aborted) emit({ type: "error", message: e.message }); }
+  catch (e) { if (!e.aborted) emit({ type: "error", message: e.message, ad: e.ad || undefined }); }
   if (!res.writableEnded) res.end();
 });
 router.get("/api/admin/ai", needAdmin, (req, res) => res.json(ai.publicConfig()));

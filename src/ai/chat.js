@@ -4,6 +4,7 @@ const { MAX_STEPS, MAX_HISTORY } = require("./constants");
 const { getConfig, enabled } = require("./config");
 const { status } = require("./limits");
 const { llm } = require("./llm");
+const ads = require("../services/ads");
 const { IMPL, TOOLS, LABEL, MUTATES } = require("./tools");
 
 const SYSTEM = `Eres el asistente de archivos de SynapseBox. Ayudas al usuario a organizar SU carpeta personal, que para ti es la raíz "/".
@@ -32,6 +33,7 @@ async function chat(u, history) {
     throw Object.assign(Error(`Has llegado a tu límite de ${st.limit} uso(s) por ${st.period === "day" ? "día" : "hora"}. Podrás volver a usarla en ${mins >= 90 ? Math.ceil(mins / 60) + " h" : mins + " min"}.`), { code: 429 });
   }
   if (busy.has(u.id)) throw Object.assign(Error("Espera a que termine tu petición anterior"), { code: 429 });
+  const ad = ads.gate("panel", { u }); // anuncio exigido (si el admin lo activó)
   busy.add(u.id);
   const ins = run("INSERT INTO ai_usage VALUES(?,?)", u.id, now());
   const c = getConfig(), convo = [{ role: "system", content: SYSTEM }, ...msgs], actions = [];
@@ -60,7 +62,7 @@ async function chat(u, history) {
     return finish(u, String(m.content || "").trim() || "Alcancé el límite de pasos.", actions);
   } catch (e) {
     if (e.provider) console.error("[IA]", e.message, "-", e.detail);
-    if (!answered) run("DELETE FROM ai_usage WHERE rowid=?", ins.lastInsertRowid); // no se cobra el uso si el proveedor falló
+    if (!answered) { run("DELETE FROM ai_usage WHERE rowid=?", ins.lastInsertRowid); ad.refund(); } // no se cobra el uso si el proveedor falló
     throw e;
   } finally { busy.delete(u.id); }
 }

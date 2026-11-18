@@ -5,8 +5,8 @@ const { sha } = require("../lib/utils");
 const { SESSION_MS } = require("../config");
 
 const fails = new Map();
-const locked = k => { const f = fails.get(k); return f && f.n >= 5 && f.until > now(); };
-const addFail = k => { const f = fails.get(k) || { n: 0 }; f.n++; f.until = now() + 15 * 60e3; fails.set(k, f); };
+const locked = k => { const f = fails.get(k); return f && f.n >= (f.max || 5) && f.until > now(); };
+const addFail = (k, max = 5) => { const f = fails.get(k) || { n: 0 }; f.n++; f.max = max; f.until = now() + 15 * 60e3; fails.set(k, f); };
 
 function startSession(req, res, uid) {
   const t = crypto.randomBytes(32).toString("hex");
