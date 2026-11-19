@@ -13,6 +13,7 @@ const { checkPw, setUsername } = require("../services/auth");
 const { relOf, removed } = require("../services/collab");
 const ver = require("../version");
 const ai = require("../ai");
+const disks = require("../services/disks");
 
 router.get("/api/admin/server", needAdmin, wrap(async (req, res) => {
   const [l, m, d] = await Promise.all([si.currentLoad(), si.mem(), si.fsSize()]), dk = d[0] || {};
@@ -23,10 +24,10 @@ router.get("/api/admin/server", needAdmin, wrap(async (req, res) => {
   });
 }));
 router.get("/api/admin/users", needAdmin, wrap(async (req, res) => {
-  const us = all("SELECT id,uuid,username,is_admin,suspended,max_space_mb,used_bytes,used_at,created_at,last_login,last_ip,ai_limit,ai_period FROM users ORDER BY username");
-  for (const u of us) await usage(u);
+  const us = all("SELECT id,uuid,username,is_admin,suspended,max_space_mb,used_bytes,used_at,created_at,last_login,last_ip,ai_limit,ai_period,COALESCE(disk_id,1) disk_id FROM users ORDER BY username");
+  for (const u of us) { await usage(u); u.disk_name = disks.nameOf(u.disk_id); }
   const on = ai.enabled();
-  res.json({ ai: on, users: us.map(({ used_at, ...u }) => { if (on) { const l = ai.limitFor(u); u.ai_eff_limit = l.limit; u.ai_eff_period = l.period; u.ai_used = ai.usedBy(u.id, l.period); } return u; }), me: req.user.id });
+  res.json({ ai: on, users: us.map(({ used_at, ...u }) => { if (on) { const l = ai.limitFor(u); u.ai_eff_limit = l.limit; u.ai_eff_period = l.period; u.ai_used = ai.usedBy(u.id, l.period); } return u; }), me: req.user.id, disks: disks.list().map(d => ({ id: d.id, name: d.name, kind: d.kind, online: d.online })) });
 }));
 router.post("/api/admin/users", needAdmin, wrap(async (req, res) => {
   const { username, password, max_space_mb, is_admin } = req.body;
@@ -34,8 +35,9 @@ router.post("/api/admin/users", needAdmin, wrap(async (req, res) => {
   checkPw(password);
   if (get("SELECT 1 x FROM users WHERE username=?", username)) throw Error("Ese usuario ya existe");
   const q = Number(max_space_mb);
-  run("INSERT INTO users(username,password_hash,is_admin,max_space_mb,created_at) VALUES(?,?,?,?,?)", username, hash(password), is_admin ? 1 : 0, Number.isFinite(q) ? (q < 0 ? -1 : q) : 100, now());
-  await fsp.mkdir(path.join(HOSTING, get("SELECT uuid FROM users WHERE username=?", username).uuid), { recursive: true });
+  const quota = Number.isFinite(q) ? (q < 0 ? -1 : q) : 100, want = Number(req.body.disk_id), dk = want && disks.list().some(d => d.id === want && d.online) ? want : disks.assign(quota);
+  run("INSERT INTO users(username,password_hash,is_admin,max_space_mb,created_at,disk_id) VALUES(?,?,?,?,?,?)", username, hash(password), is_admin ? 1 : 0, quota, now(), dk);
+  await fsp.mkdir(path.join(disks.rootOf(dk), get("SELECT uuid FROM users WHERE username=?", username).uuid), { recursive: true });
   res.json({ success: true });
 }));
 router.post("/api/admin/users/:id", needAdmin, wrap(async (req, res) => {

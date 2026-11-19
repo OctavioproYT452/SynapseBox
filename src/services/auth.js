@@ -2,7 +2,8 @@
 const crypto = require("crypto");
 const { get, run, now, verify } = require("../db");
 const { sha } = require("../lib/utils");
-const { SESSION_MS } = require("../config");
+const { setting } = require("../lib/settings");
+const sessionMs = () => Math.min(90, Math.max(1, Number(setting("session_days")) || 7)) * 864e5;
 
 const fails = new Map();
 const locked = k => { const f = fails.get(k); return f && f.n >= (f.max || 5) && f.until > now(); };
@@ -10,8 +11,8 @@ const addFail = (k, max = 5) => { const f = fails.get(k) || { n: 0 }; f.n++; f.m
 
 function startSession(req, res, uid) {
   const t = crypto.randomBytes(32).toString("hex");
-  run("INSERT INTO sessions VALUES(?,?,?,?,?,?)", sha(t), uid, now(), now() + SESSION_MS, req.ip, String(req.headers["user-agent"] || "").slice(0, 200));
-  res.set("Set-Cookie", `fc_sid=${t}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${SESSION_MS / 1000}${req.secure ? "; Secure" : ""}`);
+  run("INSERT INTO sessions VALUES(?,?,?,?,?,?)", sha(t), uid, now(), now() + sessionMs(), req.ip, String(req.headers["user-agent"] || "").slice(0, 200));
+  res.set("Set-Cookie", `fc_sid=${t}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${sessionMs() / 1000}${req.secure ? "; Secure" : ""}`);
 }
 function confirmPw(req, pw) { // verifica la contraseña actual con límite de intentos
   const k = "pw|" + req.user.id;
@@ -25,7 +26,7 @@ function setUsername(id, name) { // el nombre solo existe en la tabla users: tod
   if (get("SELECT 1 x FROM users WHERE username=? AND id<>?", name, id)) throw Error("Ese nombre de usuario ya está en uso");
   run("UPDATE users SET username=? WHERE id=?", name, id);
 }
-const checkPw = p => { if (String(p || "").length < 8) throw Error("La contraseña debe tener al menos 8 caracteres"); };
+const checkPw = p => { const m = Math.max(8, Number(setting("min_password")) || 8); if (String(p || "").length < m) throw Error(`La contraseña debe tener al menos ${m} caracteres`); if (String(p).length > 1024) throw Error("Contraseña demasiado larga"); };
 // Elimina los bloqueos de intentos fallidos ya caducados
 const purgeFails = () => { for (const [k, f] of fails) if (f.until < now()) fails.delete(k); };
 

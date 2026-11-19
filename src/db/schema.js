@@ -38,10 +38,14 @@ module.exports = function createSchema(db) {
   CREATE TABLE IF NOT EXISTS ad_log(key TEXT NOT NULL, scope TEXT NOT NULL, ts INTEGER NOT NULL);
   CREATE INDEX IF NOT EXISTS ad_log_key ON ad_log(key, ts);
   CREATE TABLE IF NOT EXISTS ad_credits(key TEXT NOT NULL, scope TEXT NOT NULL, uses INTEGER NOT NULL DEFAULT 0, until INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(key,scope));
+  CREATE TABLE IF NOT EXISTS disks(id INTEGER PRIMARY KEY, name TEXT NOT NULL, path TEXT NOT NULL DEFAULT '', kind TEXT NOT NULL DEFAULT 'internal', accepting INTEGER NOT NULL DEFAULT 1, max_gb REAL NOT NULL DEFAULT 0, created_at INTEGER);
+  CREATE TABLE IF NOT EXISTS audit(ts INTEGER NOT NULL, user TEXT, action TEXT, detail TEXT, ip TEXT);
+  CREATE INDEX IF NOT EXISTS audit_ts ON audit(ts);
+  INSERT OR IGNORE INTO disks(id,name,path,kind,accepting,max_gb,created_at) VALUES(1,'Principal','','internal',1,0,0);
   INSERT OR IGNORE INTO settings VALUES('allow_registration','1'),('default_quota_mb','100');
   `);
 
-  for (const q of ["ALTER TABLE users ADD COLUMN theme TEXT", "ALTER TABLE shares ADD COLUMN pw TEXT", "ALTER TABLE user_themes ADD COLUMN public INTEGER DEFAULT 0", "ALTER TABLE users ADD COLUMN uuid TEXT", "ALTER TABLE users ADD COLUMN ai_limit INTEGER", "ALTER TABLE users ADD COLUMN ai_period TEXT", "ALTER TABLE users ADD COLUMN totp_secret TEXT", "ALTER TABLE users ADD COLUMN totp_pending TEXT", "ALTER TABLE users ADD COLUMN totp_on INTEGER DEFAULT 0", "ALTER TABLE users ADD COLUMN totp_last INTEGER DEFAULT 0", "ALTER TABLE users ADD COLUMN dav_on INTEGER DEFAULT 0", "ALTER TABLE users ADD COLUMN dav_hash TEXT", "ALTER TABLE users ADD COLUMN dav_at INTEGER", "ALTER TABLE discord_welcome ADD COLUMN role_id TEXT"]) try { db.exec(q); } catch { }
+  for (const q of ["ALTER TABLE users ADD COLUMN theme TEXT", "ALTER TABLE shares ADD COLUMN pw TEXT", "ALTER TABLE user_themes ADD COLUMN public INTEGER DEFAULT 0", "ALTER TABLE users ADD COLUMN uuid TEXT", "ALTER TABLE users ADD COLUMN ai_limit INTEGER", "ALTER TABLE users ADD COLUMN ai_period TEXT", "ALTER TABLE users ADD COLUMN totp_secret TEXT", "ALTER TABLE users ADD COLUMN totp_pending TEXT", "ALTER TABLE users ADD COLUMN totp_on INTEGER DEFAULT 0", "ALTER TABLE users ADD COLUMN totp_last INTEGER DEFAULT 0", "ALTER TABLE users ADD COLUMN dav_on INTEGER DEFAULT 0", "ALTER TABLE users ADD COLUMN dav_hash TEXT", "ALTER TABLE users ADD COLUMN dav_at INTEGER", "ALTER TABLE discord_welcome ADD COLUMN role_id TEXT", "ALTER TABLE users ADD COLUMN disk_id INTEGER"]) try { db.exec(q); } catch { }
 
   // UUID permanente por usuario (v4). Se genera solo al crear la cuenta y nunca cambia.
   const UUID = "lower(hex(randomblob(4))||'-'||hex(randomblob(2))||'-4'||substr(hex(randomblob(2)),2)||'-'||substr('89ab',abs(random())%4+1,1)||substr(hex(randomblob(2)),2)||'-'||hex(randomblob(6)))";

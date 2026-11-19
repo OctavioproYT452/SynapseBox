@@ -5,7 +5,7 @@ function showCodes(list,title='Códigos de recuperación'){
   $('[data-dl]',d).onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['SynapseBox - códigos de recuperación (un solo uso cada uno)\n\n'+list.join('\n')+'\n'],{type:'text/plain'}));a.download='synapsebox-codigos-recuperacion.txt';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}}
 
 async function security(){
-  const s=await api('/api/security');
+  const s=await api('/api/security'),ss=(await api('/api/sessions').catch(()=>({sessions:[]}))).sessions;
   const d=dialog('Seguridad de la cuenta',`
   <h4 style="margin:0 0 6px">Verificación en dos pasos (2FA) ${s.totp?'<span class="badge ad">Activada</span>':'<span class="badge">Desactivada</span>'}</h4>
   <small>${s.totp?'Al iniciar sesión se pedirá un código de tu app de autenticación (Google Authenticator, Aegis, Authy, 1Password…).':'Añade una capa extra: además de la contraseña, se pedirá un código temporal de tu app de autenticación.'}</small>
@@ -13,7 +13,10 @@ async function security(){
   <h4 style="margin:0 0 6px">Códigos de recuperación <span class="badge ${s.codes?'':'bad'}">${s.codes} disponible${s.codes===1?'':'s'}</span></h4>
   <small>Sirven para volver a entrar si olvidas tu usuario o contraseña${s.totp?', o si pierdes tu app de autenticación':''}. Cada código se usa una sola vez.</small>
   <div class="row" style="margin-top:10px"><button type="button" class="btn ghost sm" data-gen>${ic('key')} ${s.codes?'Generar códigos nuevos':'Crear mis códigos'}</button></div>
-  ${s.codes?'<small>Generar códigos nuevos invalida los anteriores.</small>':'<small class="muted">Aún no tienes códigos: sin ellos no podrás recuperar la cuenta si olvidas la contraseña.</small>'}`);
+  ${s.codes?'<small>Generar códigos nuevos invalida los anteriores.</small>':'<small class="muted">Aún no tienes códigos: sin ellos no podrás recuperar la cuenta si olvidas la contraseña.</small>'}
+  <h4 style="margin:18px 0 6px">Mis sesiones abiertas <span class="badge">${ss.length}</span></h4><small>Si no reconoces alguna, ciérrala y cambia tu contraseña.</small>
+  <div data-ss>${ss.map(x=>`<div class="row" style="margin-top:8px"><span class="grow"><b>${x.current?'Esta sesión':esc((x.ua||'Dispositivo').slice(0,48))}</b><br><small>${esc(x.ip||'')} · ${new Date(x.created_at).toLocaleString()}</small></span>${x.current?'':`<button type="button" class="btn ghost sm" data-rv="${esc(x.id)}">Cerrar</button>`}</div>`).join('')}</div>${ss.length>1?`<div class="row" style="margin-top:10px"><button type="button" class="btn ghost sm" data-rvall>Cerrar todas las demás</button></div>`:''}`);
+  d.addEventListener('click',async e=>{const b=e.target.closest('[data-rv],[data-rvall]');if(!b)return;try{await api('/api/sessions/revoke',b.dataset.rv?{id:b.dataset.rv}:{others:true});toast('Sesión cerrada');d.close();security()}catch(x){toast(x.message,1)}});
   $('[data-gen]',d).onclick=async()=>{const p=await ask('Confirma tu contraseña','Contraseña actual','','password');if(!p)return;
     try{const r=await api('/api/recovery/regenerate',{password:p});d.close();showCodes(r.codes)}catch(x){toast(x.message,1)}};
   const on=$('[data-on]',d);if(on)on.onclick=async()=>{const p=await ask('Confirma tu contraseña','Contraseña actual','','password');if(!p)return;

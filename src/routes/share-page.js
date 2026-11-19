@@ -18,7 +18,7 @@ function shareCtx(req) {
   const s = get("SELECT s.*,u.username,u.suspended,u.theme,u.uuid owner_uuid FROM shares s JOIN users u ON u.id=s.user_id WHERE s.token=?", req.params.token);
   if (!s || s.suspended || (s.expires_at && s.expires_at < now())) return null;
   try {
-    const root = safe(path.join(HOSTING, s.owner_uuid), s.path), full = safe(root, req.query.p);
+    const root = safe(require("../lib/paths").base({ uuid: s.owner_uuid }), s.path), full = safe(root, req.query.p);
     return fs.existsSync(full) ? { s, root, full, th: userTheme(s) } : null;
   } catch { return null; }
 }

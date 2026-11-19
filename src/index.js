@@ -22,6 +22,12 @@ app.use("/dav", require("./routes/webdav").dav); // WebDAV antes del lector de c
 app.use(security.body);
 app.use(security.csrf); // protección CSRF: el origen debe coincidir con el host
 app.use(session);
+app.use(require("./services/audit").middleware); // registro de auditoría de las acciones de administración
+const { setting } = require("./lib/settings");
+app.use((req, res, next) => { // modo mantenimiento: solo los administradores pueden usar la API
+  if (setting("maintenance") === "1" && req.path.startsWith("/api/") && !req.user?.is_admin && !/^\/api\/(login|logout|session|health)/.test(req.path)) return res.status(503).json({ error: setting("maintenance_msg") || "Servidor en mantenimiento. Vuelve en un rato." });
+  next();
+});
 app.use(require("./discord/activity")); // registro de actividad hacia Discord (no hace nada si el bot no está configurado)
 const plugins = require("./services/plugins");
 app.use(plugins.assets);     // archivos de los plugins activos: /plugins/<id>/…
@@ -41,6 +47,8 @@ app.use(require("./routes/collab"));
 app.use(require("./routes/share-page"));
 app.use(require("./routes/admin"));
 app.use(require("./routes/ads"));
+app.use(require("./routes/storage"));
+app.use(require("./routes/extras"));
 app.use(require("./routes/ai"));
 app.use(require("./routes/discord"));
 app.use(require("./routes/discord-custom"));
@@ -66,7 +74,7 @@ process.on("unhandledRejection", e => console.error("Aviso (promesa sin gestiona
 setInterval(() => {
   run("DELETE FROM sessions WHERE expires_at<?", now());
   run("DELETE FROM shares WHERE expires_at IS NOT NULL AND expires_at<?", now());
-  ai.purge(); require("./services/ads").purge();
+  require("./services/audit").purge(); ai.purge(); require("./services/ads").purge();
   purgeFails();
   require("./services/twofa").purgeTickets();
   require("./services/trash").sweep().catch(() => { }); // vacía de la papelera lo que superó los días indicados

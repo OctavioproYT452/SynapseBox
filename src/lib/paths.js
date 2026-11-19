@@ -1,6 +1,5 @@
 // Resolución segura de rutas dentro de la carpeta de cada usuario.
 const fs = require("fs"), path = require("path");
-const { HOSTING } = require("../config");
 
 // Ruta real de p aunque no exista del todo: resuelve (siguiendo enlaces simbólicos) el ancestro más profundo que existe y le añade el resto.
 function realOf(p) {
@@ -21,7 +20,7 @@ function safe(base, rel = "") {
   return f;
 }
 const nm = n => { n = String(n || "").trim(); if (!n || /[\/\\\0]/.test(n) || n === "." || n === ".." || n.length > 200 || /[\u0001-\u001f]/.test(n)) throw Error("Nombre inválido"); return n; };
-const base = u => path.join(HOSTING, u.uuid); // la carpeta usa el UUID, no el nombre de usuario
+const base = u => require("../services/disks").userDir(u); // la carpeta usa el UUID, no el nombre de usuario
 const limitB = u => u.max_space_mb < 0 ? Infinity : u.max_space_mb * 1048576;
 // Ruta absoluta del archivo indicado en ?path= o en el cuerpo (nunca la carpeta raíz del usuario)
 const fileOf = (req, root = base(req.user)) => { const f = safe(root, req.query.path || req.body.path); if (f === root) throw Error("Falta ruta"); return f; };

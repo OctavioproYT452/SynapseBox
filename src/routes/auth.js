@@ -10,6 +10,7 @@ const { locked, addFail, fails, startSession, confirmPw, setUsername, checkPw } 
 const ver = require("../version");
 const ai = require("../ai");
 const tf = require("../services/twofa");
+const disks = require("../services/disks");
 
 const DUMMY_HASH = hash("synapsebox-dummy-password");
 router.post("/api/register", wrap(async (req, res) => {
@@ -19,11 +20,13 @@ router.post("/api/register", wrap(async (req, res) => {
   if (password !== password2) throw Error("Las contraseñas no coinciden");
   checkPw(password);
   if (get("SELECT 1 x FROM users WHERE username=?", username)) throw Error("Ese usuario ya existe");
+  const maxU = Number(setting("max_users")) || 0; if (maxU && get("SELECT COUNT(*) n FROM users").n >= maxU) throw Error("El servidor ha alcanzado el máximo de usuarios");
   const first = get("SELECT COUNT(*) n FROM users").n === 0; // el primer usuario es administrador
   const r = run("INSERT INTO users(username,password_hash,is_admin,max_space_mb,created_at) VALUES(?,?,?,?,?)",
     username, hash(password), first ? 1 : 0, Number(setting("default_quota_mb")) || 100, now());
-  await fsp.mkdir(path.join(HOSTING, get("SELECT uuid FROM users WHERE username=?", username).uuid), { recursive: true });
-  const id = Number(r.lastInsertRowid);
+  const id = Number(r.lastInsertRowid), dk = disks.assign(Number(setting("default_quota_mb")) || 100);
+  run("UPDATE users SET disk_id=? WHERE id=?", dk, id);
+  await fsp.mkdir(path.join(disks.rootOf(dk), get("SELECT uuid FROM users WHERE id=?", id).uuid), { recursive: true });
   startSession(req, res, id);
   req.user = { username };
   res.json({ success: true, codes: tf.makeCodes(id) }); // códigos de recuperación: se muestran una sola vez
