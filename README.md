@@ -159,7 +159,7 @@ Variables de entorno:
 | `TRUST_PROXY` | _(vacío)_ | Pon `1` si estás detrás de un proxy inverso (Nginx, Caddy, Cloudflare…) para obtener la IP real y las cookies `Secure`. |
 | `DISCORD_TOKEN` | _(vacío)_ | Token del bot de Discord. Sin él, el bot no se activa. Ver [Bot de Discord](#bot-de-discord-opcional). |
 | `DISCORD_GUILD_ID` | _(vacío)_ | (Opcional) ID de tu servidor de Discord: los comandos aparecen al instante solo en él. |
-| `PUBLIC_URL` | _(vacío)_ | (Opcional) Dirección pública de tu SynapseBox, sin barra final (ej. `https://nube.ejemplo.com`). El bot la usa para dar enlaces completos. |
+| `PUBLIC_URL` | _(vacío)_ | (Opcional) Dirección pública de tu SynapseBox, sin barra final (ej. `https://nube.ejemplo.com`). El bot la usa para dar enlaces completos, y los anuncios de la IA para crear sus enlaces de retorno (también se puede poner en Admin → IA → Anuncios). |
 | `DISCORD_UPDATE_ROLE_ID` | _(vacío)_ | (Opcional) ID de un rol de Discord al que se menciona cuando hay una versión nueva. |
 
 Puedes definirlas en el entorno o, más cómodo, en un archivo **`.env`** en la raíz del proyecto (los instaladores lo crean a partir de `.env.example`; no se sube a GitHub). Las variables del entorno tienen prioridad sobre el `.env`.
@@ -347,7 +347,18 @@ Disponible en `/admin/` solo para administradores. Usa el mismo menú de usuario
 - **Enlaces:** todos los enlaces compartidos, con opción de revocarlos.
 - **IA:** activar o desactivar el agente de IA, elegir Grok, OpenAI (ChatGPT), Gemini u Ollama, API key, modelo y límite de usos (ver [Agente de IA](#agente-de-ia-opcional)).
 - **Plugins:** ver [Plugins](#plugins).
+- **Almacenamiento:** varios discos (internos o externos, con detección de discos montados), política de reparto para usuarios nuevos, tope de uso y reserva libre. En **Usuarios** se ve en qué disco está cada cuenta y se puede mover. Ver [Varios discos](#varios-discos-de-almacenamiento).
+- **Avanzado:** modo mantenimiento, máximo de usuarios, duración de la sesión, longitud mínima de contraseña, copia de seguridad de la base de datos y registro de actividad de administración (activable/desactivable).
 - **Ajustes:** registro público, cuota por defecto y anuncio global.
+- **IA → Anuncios:** exigir ver un anuncio para usar la IA (por mensaje del panel, por ejecución de comando de Discord con `$ai…` o por tiempo), con acortadores con API o enlaces directos que no necesitan dominio. Ver [Anuncios para usar la IA](#anuncios-para-usar-la-ia).
+
+### Varios discos de almacenamiento
+
+El disco **Principal** es la carpeta `hosting/`. En **Admin → Almacenamiento** puedes añadir más carpetas (otro disco interno, un USB, un montaje de red) indicando su ruta absoluta; se comprueba que se pueda escribir y que no sea una carpeta del sistema, ni esté dentro de SynapseBox ni se solape con otro disco. Cada usuario vive en **un solo disco** (`<disco>/<uuid>`). Los usuarios nuevos se asignan según la política elegida (llenar en orden, más espacio libre o repartir) y un disco puede marcarse como «no acepta nuevos». Mover a un usuario (Usuarios → Editar) copia su carpeta al disco nuevo y borra la original. Un disco con usuarios no se puede quitar, y si un disco externo se desconecta aparece «sin conexión». La papelera sigue en `data/trash`.
+
+### Anuncios para usar la IA
+
+En **Admin → IA → Anuncios** el administrador decide, para el asistente del panel y para los comandos de Discord con `$ai…`, entre: sin anuncios, **por uso** (cada anuncio da N mensajes o ejecuciones) o **por tiempo** (cada anuncio da N minutos de acceso, acumulables hasta 7 días). Proveedores sin dominio propio: **acortador con API** (plantillas editables para ShrinkMe, GPLinks, ShrinkEarn y ouo.io) o **enlace directo** (Direct Link de Adsterra, Monetag…). Los cobros y retiros los gestiona cada servicio; comprueba sus condiciones. Se necesita la **URL pública** del servidor (`PUBLIC_URL` o el campo del panel). Reglas anti-abuso: tiempo mínimo viendo el anuncio, un uso por enlace, caducidad, pausa entre anuncios, máximo diario, límite por IP y administradores exentos. En Discord el enlace llega en el propio mensaje del comando. Limitación: sin postback del servicio, quien espere el tiempo mínimo puede validar el anuncio sin completar el acortador.
 
 ### Actualizaciones
 
@@ -366,7 +377,7 @@ Disponible en `/admin/` solo para administradores. Usa el mismo menú de usuario
 ## Agente de IA (opcional)
 
 
-**Agente de IA del panel de archivos (2.21.1):** el botón **Asistente IA** (o `Ctrl+Mayús+I`) abre un chat **en streaming**: el texto aparece según se escribe y cada herramienta que usa es una tarjeta que se completa en directo. Con **un solo mensaje** (un uso del límite) puede encadenar hasta 30 pasos y no se detiene hasta acabar. Herramientas: listar y **árbol**, **leer varios archivos**, **buscar** por nombre/extensión/tamaño/antigüedad y **dentro del contenido**, **crear varios archivos** a la vez, **editar con reemplazos exactos**, añadir texto, **mover, copiar y borrar varios** a la vez (el borrado va a la papelera), **organizar una carpeta** por tipo, extensión o año, **informe de espacio**, **duplicados**, **papelera** (ver y restaurar), **favoritos** y **temas**: puede crear un tema nuevo a partir del actual (colores, redondeo, fuente, espaciado, fondo y botones de tu carpeta «Temas»), **guardarlo en Apariencia → Mis temas** y aplicarlo al momento; nunca pisa un tema existente y avisa si el contraste es malo. El chat sabe qué carpeta tienes abierta y qué has seleccionado (botón **Preguntar a la IA** en la barra de selección), tiene sugerencias rápidas y botón **Detener**. Sigue confinado a tu carpeta: no ejecuta nada y los archivos que crea nunca son ejecutables. API: `POST /api/ai/agent` (NDJSON: `text`, `tool_prep`, `tool_prog`, `tool_start`, `tool_end`, `changed`, `theme`, `done`, `error`); `POST /api/ai/chat` sigue disponible.
+**Agente de IA del panel de archivos (2.18.5):** el botón **Asistente IA** (o `Ctrl+Mayús+I`) abre un chat **en streaming**: el texto aparece según se escribe y cada herramienta que usa es una tarjeta que se completa en directo. Con **un solo mensaje** (un uso del límite) puede encadenar hasta 30 pasos y no se detiene hasta acabar. Herramientas: listar y **árbol**, **leer varios archivos**, **buscar** por nombre/extensión/tamaño/antigüedad y **dentro del contenido**, **crear varios archivos** a la vez, **editar con reemplazos exactos**, añadir texto, **mover, copiar y borrar varios** a la vez (el borrado va a la papelera), **organizar una carpeta** por tipo, extensión o año, **informe de espacio**, **duplicados**, **papelera** (ver y restaurar), **favoritos** y **temas**: puede crear un tema nuevo a partir del actual (colores, redondeo, fuente, espaciado, fondo y botones de tu carpeta «Temas»), **guardarlo en Apariencia → Mis temas** y aplicarlo al momento; nunca pisa un tema existente y avisa si el contraste es malo. El chat sabe qué carpeta tienes abierta y qué has seleccionado (botón **Preguntar a la IA** en la barra de selección), tiene sugerencias rápidas y botón **Detener**. Sigue confinado a tu carpeta: no ejecuta nada y los archivos que crea nunca son ejecutables. API: `POST /api/ai/agent` (NDJSON: `text`, `tool_prep`, `tool_prog`, `tool_start`, `tool_end`, `changed`, `theme`, `done`, `error`); `POST /api/ai/chat` sigue disponible.
 Al terminar `npm install`, los instaladores (`scripts/unix/install.sh`, `scripts/windows/install.ps1`, `scripts/windows/install.bat` y los de una línea) ejecutan `tools/setup-ai.js`, que pregunta:
 
 1. **¿Quieres configurar un agente de IA?**
@@ -598,7 +609,11 @@ Los plugins instalados viven en `data/plugins/` y su estado en `data/plugins-sta
 - Los archivos HTML o de script subidos se sirven aislados (`sandbox`) para que no puedan actuar con la sesión de nadie.
 - **WebDAV**: la clave se genera al azar (≈100 bits), solo se guarda su hash, cada usuario solo ve su carpeta (también se comprueban los enlaces simbólicos), hay bloqueo tras 5 intentos fallidos y la cuota se respeta.
 - **Bot de Discord** (opcional): token solo en `.env`, vinculación con bloqueo por intentos, comandos de admin comprobados en cada uso, respuestas privadas y registro de actividad sin escribir en disco. Detalles en [Bot de Discord](#bot-de-discord-opcional).
-- Cabeceras `Content-Security-Policy`, `X-Content-Type-Options` y `X-Frame-Options`.
+- Cabeceras `Content-Security-Policy` (con `frame-ancestors`, `form-action` y `connect-src`), `X-Content-Type-Options`, `X-Frame-Options`, `Permissions-Policy`, `Cross-Origin-Opener/Resource-Policy` y `Strict-Transport-Security` (solo bajo HTTPS); la API responde con `Cache-Control: no-store`.
+- CSRF: además del origen, se rechazan las peticiones sin `Origin` que el navegador marca como `cross-site`.
+- Inicio de sesión con coste constante para usuarios inexistentes (no se pueden enumerar por tiempos), límite adicional por IP y tope de longitud de credenciales.
+- **Anuncios de la IA**: solo `https` y sin redes internas (anti-SSRF), sin seguir redirecciones, tokens aleatorios guardados como hash.
+- **Registro de actividad de administración** (activable): quién cambió qué y desde qué IP, 90 días y máx. 5000 entradas. **Mis sesiones** permite a cada usuario cerrar sesiones que no reconozca.
 - Los enlaces compartidos usan tokens aleatorios, pueden caducar y se pueden proteger con contraseña.
 
 > Recomendación: publícalo siempre detrás de HTTPS.
@@ -628,6 +643,9 @@ Los plugins instalados viven en `data/plugins/` y su estado en `data/plugins-sta
 │   │   ├── auth.js        #   Sesiones, intentos fallidos y validaciones de cuenta
 │   │   ├── collab.js      #   Roles, permisos y espacio de cada petición
 │   │   ├── twofa.js       #   2FA (TOTP) y códigos de recuperación
+│   │   ├── ads.js         #   Anuncios para usar la IA (créditos, sesiones y proveedores)
+│   │   ├── disks.js       #   Varios discos de almacenamiento y mover usuarios
+│   │   ├── audit.js       #   Registro de actividad de administración
 │   │   ├── themes.js      #   Validación de temas y generación del CSS
 │   │   └── webdav.js      #   Servidor WebDAV (/dav)
 │   ├── lib/unzip.js       #   Lector ZIP seguro (descomprimir)
@@ -645,6 +663,9 @@ Los plugins instalados viven en `data/plugins/` y su estado en `data/plugins-sta
 │   │   ├── themes.js      #   Apariencia y comunidad de temas
 │   │   ├── admin.js       #   Panel de administración
 │   │   ├── ai.js          #   API del agente de IA
+│   │   ├── ads.js         #   Anuncios de la IA: páginas /ads/… y configuración
+│   │   ├── storage.js     #   Discos de almacenamiento y ajustes avanzados
+│   │   ├── extras.js      #   Copia de seguridad, auditoría y mis sesiones
 │   │   └── discord.js     #   Cuenta vinculada y ajustes del bot de Discord
 │   ├── views/
 │   │   └── share-helpers.js # HTML y formato de la página compartida
@@ -695,7 +716,7 @@ Los plugins instalados viven en `data/plugins/` y su estado en `data/plugins-sta
 │   ├── auth.css           # Animaciones del inicio de sesión
 │   ├── style.css          # Sistema de diseño compartido
 │   └── icons.svg          # Iconos SVG
-├── hosting/               # Archivos de los usuarios (una carpeta por usuario, nombrada con su UUID)
+├── hosting/               # Disco «Principal»: archivos de los usuarios (una carpeta por usuario, nombrada con su UUID). Otros discos se añaden desde el panel
 └── data/                  # Base de datos SQLite (se crea sola) y version.json
 ```
 
@@ -734,6 +755,13 @@ Todas las rutas `/api/*` devuelven JSON y requieren sesión, salvo `login`, `reg
 | `GET` | `/api/stats` | Uso de espacio por tipo. |
 | `GET` / `POST` | `/api/ai/status`, `/api/ai/chat` | Agente de IA (404 si está desactivada). |
 | `GET` / `POST` | `/api/discord`, `/api/discord/unlink` | Estado de tu cuenta de Discord vinculada y desvinculación. |
+| `GET` | `/api/ads/status`, `/ads/go?scope=`, `/ads/w/:token`, `/ads/state/:token`, `/ads/r/:token` | Anuncios para usar la IA: estado de mis créditos y páginas del anuncio (sin sesión salvo `/ads/go`; el token del enlace es secreto y de un solo uso). `POST /ads/open/:token` abre el anuncio. |
+| `GET` / `POST` | `/api/sessions`, `/api/sessions/revoke` | Mis sesiones abiertas; cerrar una (`{ id }`) o todas las demás (`{ others: true }`). |
+| `POST` | `/api/ai/agent` | Agente de IA del panel en streaming (NDJSON). Si hace falta un anuncio, el error lleva `ad: true`. |
+| `GET` / `POST` / `DELETE` | `/api/admin/disks`, `/api/admin/disks/:id`, `/api/admin/users/:id/disk` | Discos de almacenamiento (solo admin): listar con discos detectados, añadir, editar, quitar y mover a un usuario de disco. |
+| `GET` / `POST` | `/api/admin/advanced` | Ajustes avanzados: mantenimiento, máx. de usuarios, sesión, contraseña mínima, política de discos y registro de actividad. |
+| `GET` / `POST` | `/api/admin/ads`, `/api/admin/ads/test` | Configuración de los anuncios de la IA y prueba del proveedor (la API key nunca se devuelve). |
+| `GET` / `POST` | `/api/admin/backup`, `/api/admin/audit`, `/api/admin/audit/clear` | Descarga de la base de datos, registro de actividad y vaciado. |
 | `*` | `/api/admin/*` | Administración (solo admins), incluidas `/api/admin/ai` y `/api/admin/discord` (ajustes, quitar canal, mensaje de prueba). |
 
 ## Despliegue en producción
@@ -791,7 +819,7 @@ Todo el estado de la aplicación está en dos carpetas:
 - `data/` → base de datos (usuarios, sesiones, enlaces, favoritos y ajustes).
 - `hosting/` → archivos de los usuarios (una carpeta por UUID; la relación UUID ↔ nombre está en la base de datos, así que guarda ambas carpetas juntas).
 
-Con el servidor parado, copia ambas carpetas. Para restaurar, devuélvelas a su sitio.
+Si añadiste más discos (Admin → Almacenamiento), también hay que copiar sus carpetas. Desde **Admin → Avanzado** puedes descargar una copia de la base de datos en caliente (sin los archivos). Con el servidor parado, copia ambas carpetas. Para restaurar, devuélvelas a su sitio.
 
 ## Migrar desde la versión 1
 
