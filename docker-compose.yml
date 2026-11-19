@@ -1,0 +1,29 @@
+# SynapseBox con Docker Compose:   docker compose up -d --build
+# Luego abre http://localhost:3001 (el primer usuario que se registre es administrador).
+services:
+  synapsebox:
+    build: .
+    image: synapsebox:latest
+    container_name: synapsebox
+    restart: unless-stopped
+    init: true
+    ports:
+      - "3001:3001"            # cambia el primero para otro puerto: "8080:3001"
+    environment:
+      TRUST_PROXY: "1"         # pon "" si lo expones sin proxy inverso
+      # PUBLIC_URL: "https://nube.ejemplo.com"   # necesaria para los anuncios de la IA en Discord y para los enlaces del bot
+      # DISCORD_TOKEN: ""
+      # DISCORD_GUILD_ID: ""
+      # DISCORD_UPDATE_ROLE_ID: ""
+    # env_file: .env           # alternativa: guardar los secretos en un .env junto a este archivo
+    volumes:
+      - synapsebox-data:/app/data         # base de datos, ajustes y plugins
+      - synapsebox-hosting:/app/hosting   # archivos de los usuarios (disco «Principal»)
+      - synapsebox-disk2:/disks/disk2     # disco extra: en Admin → Almacenamiento añade la ruta /disks/disk2
+      # Disco externo del anfitrión (carpeta propiedad del uid 1000, que es el usuario «node» del contenedor):
+      # - /mnt/usb:/disks/usb
+
+volumes:
+  synapsebox-data:
+  synapsebox-hosting:
+  synapsebox-disk2:

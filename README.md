@@ -11,7 +11,7 @@ Sube, organiza, edita y comparte archivos desde cualquier dispositivo, con usuar
 
 </div>
 
-> **Versión 2.21.1.** Qué ha cambiado en esta versión: consulta [RELEASE.md](RELEASE.md).
+> **Versión 2.22.0.** Qué ha cambiado en esta versión: consulta [RELEASE.md](RELEASE.md).
 
 ---
 
@@ -126,6 +126,21 @@ bash scripts/unix/install.sh        # Linux y macOS
 En Windows, haz doble clic en `scripts\windows\install.bat` o ejecuta `.\scripts\windows\install.ps1` en PowerShell.
 
 Los instaladores detectan el sistema (apt, dnf/yum, pacman, zypper, apk, Homebrew, winget o Chocolatey), instalan Node.js y npm si no están, y ejecutan `npm install`. En Linux instalan Node.js 22 mediante NodeSource (apt, dnf, yum) o el repositorio de la distribución; necesitan `root` o `sudo` para instalar paquetes.
+
+### Con Docker (alternativa a las opciones 1-3)
+
+```bash
+docker compose up -d --build
+```
+
+Abre `http://localhost:3001`; el primer usuario que se registre es administrador. Usa Node 22 (con `node:sqlite`), corre como usuario no root (uid 1000), tiene `HEALTHCHECK` sobre `/api/health` y se cierra de forma ordenada con `docker stop`.
+
+- **Volúmenes:** `/app/data` (base de datos, ajustes y plugins), `/app/hosting` (disco «Principal» con los archivos de los usuarios) y `/disks` (discos extra). Haz copia de los tres; ver [Copias de seguridad](#copias-de-seguridad).
+- **Varios discos en Docker:** monta la carpeta o el disco del anfitrión en `/disks/<nombre>` (por ejemplo `- /mnt/usb:/disks/usb` en `docker-compose.yml`) y en **Admin → Almacenamiento** añade la ruta **del contenedor** (`/disks/usb`). Con carpetas del anfitrión (bind mounts) la carpeta debe poder escribirla el uid 1000: `sudo chown -R 1000:1000 /mnt/usb`.
+- **Variables:** `PORT`, `TRUST_PROXY` (ya en `1` en la imagen, pensado para ir detrás de un proxy), `PUBLIC_URL`, `DISCORD_TOKEN`, `DISCORD_GUILD_ID`… en `environment:` o en un `.env` con `env_file`.
+- **Vista previa de documentos de Office (opcional):** `docker build --build-arg INSTALL_LIBREOFFICE=1 -t synapsebox .` (la imagen pesa bastante más).
+- **Actualizar:** `git pull && docker compose up -d --build`; los volúmenes conservan tus datos.
+- El espacio libre que ve el panel es el del sistema de archivos de cada volumen dentro del contenedor.
 
 ### Opción 3: manual
 
@@ -365,7 +380,7 @@ En **Admin → IA → Anuncios** el administrador decide, para el asistente del 
 - La versión instalada está en `data/version.json`:
 
   ```json
-  { "version": "2.21.1" }
+  { "version": "2.22.0" }
   ```
 
 - Cada 2 minutos el servidor lee ese archivo local y lo compara con el `data/version.json` publicado en GitHub. Si el de GitHub es más nuevo (se comparan los números: `2.10` es mayor que `2.9`), los **administradores** ven un aviso de nueva versión con instrucciones para actualizar.
@@ -703,6 +718,7 @@ Los plugins instalados viven en `data/plugins/` y su estado en `data/plugins-sta
 │       ├── install.ps1
 │       ├── install.bat    #     Doble clic
 │       └── lib/           #     common.ps1, node.ps1
+├── Dockerfile, docker-compose.yml, .dockerignore # Despliegue con Docker
 ├── get.sh / get.ps1       # Instalación en una línea (git + clonar + instalar)
 ├── .env.example           # Plantilla de configuración (se copia a .env, que no se sube a GitHub)
 ├── public/
@@ -819,7 +835,7 @@ Todo el estado de la aplicación está en dos carpetas:
 - `data/` → base de datos (usuarios, sesiones, enlaces, favoritos y ajustes).
 - `hosting/` → archivos de los usuarios (una carpeta por UUID; la relación UUID ↔ nombre está en la base de datos, así que guarda ambas carpetas juntas).
 
-Si añadiste más discos (Admin → Almacenamiento), también hay que copiar sus carpetas. Desde **Admin → Avanzado** puedes descargar una copia de la base de datos en caliente (sin los archivos). Con el servidor parado, copia ambas carpetas. Para restaurar, devuélvelas a su sitio.
+Si añadiste más discos (Admin → Almacenamiento), también hay que copiar sus carpetas. En Docker son los volúmenes `synapsebox-data`, `synapsebox-hosting` y los de `/disks`. Desde **Admin → Avanzado** puedes descargar una copia de la base de datos en caliente (sin los archivos). Con el servidor parado, copia ambas carpetas. Para restaurar, devuélvelas a su sitio.
 
 ## Migrar desde la versión 1
 
