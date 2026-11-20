@@ -9,10 +9,16 @@ const fails = new Map();
 const locked = k => { const f = fails.get(k); return f && f.n >= (f.max || 5) && f.until > now(); };
 const addFail = (k, max = 5) => { const f = fails.get(k) || { n: 0 }; f.n++; f.max = max; f.until = now() + 15 * 60e3; fails.set(k, f); };
 
+// Crea la sesión. Devuelve el token (idéntico al valor de la cookie fc_sid) para incluirlo en el JSON de la respuesta.
+// Apps nativas: enviar en el cuerpo { client: "android" | "windows" | "linux" | "macos" | "ios" | "app", device: "Mi móvil" }; entonces no se envía cookie.
+const NATIVE = ["android", "windows", "linux", "macos", "ios", "app"];
 function startSession(req, res, uid) {
-  const t = crypto.randomBytes(32).toString("hex");
-  run("INSERT INTO sessions VALUES(?,?,?,?,?,?)", sha(t), uid, now(), now() + sessionMs(), req.ip, String(req.headers["user-agent"] || "").slice(0, 200));
-  res.set("Set-Cookie", `fc_sid=${t}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${sessionMs() / 1000}${req.secure ? "; Secure" : ""}`);
+  const t = crypto.randomBytes(32).toString("hex"), b = req.body || {}, client = String(b.client || "").toLowerCase(), native = NATIVE.includes(client);
+  const ua = (native ? `[${client}] ${String(b.device || "").replace(/[\u0000-\u001f]/g, " ").slice(0, 60)} ` : "") + String(req.headers["user-agent"] || "");
+  const exp = now() + sessionMs();
+  run("INSERT INTO sessions VALUES(?,?,?,?,?,?)", sha(t), uid, now(), exp, req.ip, ua.trim().slice(0, 200));
+  if (!native) res.set("Set-Cookie", `fc_sid=${t}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${sessionMs() / 1000}${req.secure ? "; Secure" : ""}`);
+  return { token: t, token_type: "Bearer", expires_at: exp, expires_in: Math.floor(sessionMs() / 1000) };
 }
 function confirmPw(req, pw) { // verifica la contraseña actual con límite de intentos
   const k = "pw|" + req.user.id;

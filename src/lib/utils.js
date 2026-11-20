@@ -9,4 +9,6 @@ const wrap = fn => (req, res) => Promise.resolve(fn(req, res)).catch(e => res.st
 const cookies = req => Object.fromEntries((req.headers.cookie || "").split(";").map(c => c.trim().split(/=(.*)/s).slice(0, 2)).filter(a => a[0]));
 const fix = n => { const d = Buffer.from(n, "latin1").toString("utf8"); return d.includes("\ufffd") ? n : d; };
 
-module.exports = { sha, esc, wrap, cookies, fix, errMsg };
+// Token de sesión de las apps (Android, Windows, Linux…): "Authorization: Bearer <token>". Es el mismo valor que la cookie fc_sid.
+const bearer = req => { const m = /^Bearer\s+([0-9a-f]{64})$/i.exec(String(req.headers.authorization || "")); return m ? m[1].toLowerCase() : null; };
+module.exports = { bearer, sha, esc, wrap, cookies, fix, errMsg };

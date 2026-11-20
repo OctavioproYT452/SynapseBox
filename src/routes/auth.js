@@ -3,7 +3,7 @@ const router = require("express").Router();
 const { get, run, now, hash, verify } = require("../db");
 const fsp = require("fs").promises, path = require("path");
 const { HOSTING } = require("../config");
-const { sha, wrap, cookies } = require("../lib/utils");
+const { sha, wrap, cookies, bearer } = require("../lib/utils");
 const { setting } = require("../lib/settings");
 const { need } = require("../middleware/auth");
 const { locked, addFail, fails, startSession, confirmPw, setUsername, checkPw } = require("../services/auth");
@@ -27,9 +27,9 @@ router.post("/api/register", wrap(async (req, res) => {
   const id = Number(r.lastInsertRowid), dk = disks.assign(Number(setting("default_quota_mb")) || 100);
   run("UPDATE users SET disk_id=? WHERE id=?", dk, id);
   await fsp.mkdir(path.join(disks.rootOf(dk), get("SELECT uuid FROM users WHERE id=?", id).uuid), { recursive: true });
-  startSession(req, res, id);
+  const tk = startSession(req, res, id);
   req.user = { username };
-  res.json({ success: true, codes: tf.makeCodes(id) }); // códigos de recuperación: se muestran una sola vez
+  res.json({ success: true, ...tk, codes: tf.makeCodes(id) }); // códigos de recuperación: se muestran una sola vez
 }));
 
 router.post("/api/login", (req, res) => {
@@ -47,8 +47,8 @@ router.post("/api/login", (req, res) => {
 });
 function finish(req, res, u) {
   run("UPDATE users SET last_login=?,last_ip=? WHERE id=?", now(), req.ip, u.id);
-  startSession(req, res, u.id); req.user = u;
-  res.json({ success: true, admin: !!u.is_admin });
+  const tk = startSession(req, res, u.id); req.user = u;
+  res.json({ success: true, admin: !!u.is_admin, ...tk, user: { username: u.username, uuid: u.uuid, admin: !!u.is_admin } });
 }
 router.post("/api/login/2fa", (req, res) => {
   const t = tf.tickets.get(String(req.body.ticket || "")), key = "2fa|" + req.ip;
@@ -67,14 +67,14 @@ router.post("/api/login/2fa", (req, res) => {
 });
 
 const logout = (req, res) => {
-  const t = cookies(req).fc_sid;
+  const t = req.headers.authorization ? bearer(req) : cookies(req).fc_sid; // token de app o cookie del navegador
   if (t) run("DELETE FROM sessions WHERE token=?", sha(t));
-  res.set("Set-Cookie", "fc_sid=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0");
+  if (!req.headers.authorization) res.set("Set-Cookie", "fc_sid=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0");
 };
 router.post("/api/logout", (req, res) => { logout(req, res); res.json({ success: true }); });
 router.get("/logout", (req, res) => { logout(req, res); res.redirect("/"); });
 
-router.get("/api/session", (req, res) => res.json(req.user ? { logged: true, user: req.user.username, admin: !!req.user.is_admin, uuid: req.user.uuid, update: req.user.is_admin ? ver.info() : null, registration: false, announcement: setting("announcement") || "", ai: ai.enabled() } : { logged: false, registration: setting("allow_registration") === "1" }));
+router.get("/api/session", (req, res) => res.json(req.user ? { logged: true, via: req.viaToken ? "token" : "cookie", user: req.user.username, admin: !!req.user.is_admin, uuid: req.user.uuid, update: req.user.is_admin ? ver.info() : null, registration: false, announcement: setting("announcement") || "", ai: ai.enabled() } : { logged: false, registration: setting("allow_registration") === "1" }));
 
 router.post("/api/username", need, wrap(async (req, res) => {
   confirmPw(req, req.body.password);

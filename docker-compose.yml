@@ -11,6 +11,7 @@ services:
       - "3001:3001"            # cambia el primero para otro puerto: "8080:3001"
     environment:
       TRUST_PROXY: "1"         # pon "" si lo expones sin proxy inverso
+      # CORS_ORIGINS: "capacitor://localhost,https://tauri.localhost"   # solo para apps con WebView
       # PUBLIC_URL: "https://nube.ejemplo.com"   # necesaria para los anuncios de la IA en Discord y para los enlaces del bot
       # DISCORD_TOKEN: ""
       # DISCORD_GUILD_ID: ""

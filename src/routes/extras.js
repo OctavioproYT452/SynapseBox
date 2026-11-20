@@ -31,4 +31,10 @@ router.post("/api/sessions/revoke", need, wrap(async (req, res) => {
   else { const id = String(req.body.id || ""); if (!/^[0-9a-f]{16}$/.test(id)) throw Error("Sesión inválida"); run("DELETE FROM sessions WHERE user_id=? AND token<>? AND substr(token,1,16)=?", req.user.id, req.sid, id); }
   res.json({ success: true });
 }));
+// Renovar la sesión actual (apps): alarga su caducidad otro periodo completo y devuelve la nueva fecha
+router.post("/api/session/renew", need, (req, res) => {
+  const ms = Math.min(90, Math.max(1, Number(require("../lib/settings").setting("session_days")) || 7)) * 864e5, exp = now() + ms;
+  run("UPDATE sessions SET expires_at=? WHERE token=?", exp, req.sid);
+  res.json({ success: true, expires_at: exp, expires_in: Math.floor(ms / 1000) });
+});
 module.exports = router;

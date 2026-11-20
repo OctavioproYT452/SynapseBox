@@ -18,6 +18,7 @@ if (process.env.TRUST_PROXY) app.set("trust proxy", 1);
 
 // ---------- middleware ----------
 app.use(security.headers);
+app.use(security.cors);
 app.use("/dav", require("./routes/webdav").dav); // WebDAV antes del lector de cuerpos: los PUT llegan como flujo
 app.use(security.body);
 app.use(security.csrf); // protección CSRF: el origen debe coincidir con el host
@@ -46,6 +47,7 @@ app.use(require("./routes/shares"));
 app.use(require("./routes/collab"));
 app.use(require("./routes/share-page"));
 app.use(require("./routes/admin"));
+app.use(require("./routes/sync"));
 app.use(require("./routes/ads"));
 app.use(require("./routes/storage"));
 app.use(require("./routes/extras"));
@@ -63,7 +65,7 @@ app.get(["/", "/index.html"], (req, res, next) => req.user ? res.redirect("/pane
 app.get(["/panel.html", "/themes.html"], (req, res, next) => req.user ? next() : res.redirect("/"));
 app.use("/admin", (req, res, next) => req.user?.is_admin ? next() : res.redirect("/"));
 app.use(plugins.html); // inyecta los plugins activos en las páginas HTML
-app.get("/api/health", (req, res) => res.json({ ok: true })); // para comprobar desde un proxy, PM2 o un monitor que el servidor responde
+app.get("/api/health", (req, res) => res.json({ ok: true, app: "SynapseBox", version: ver.info().current })); // las apps lo usan para reconocer el servidor al buscarlo en la red local; // para comprobar desde un proxy, PM2 o un monitor que el servidor responde
 app.use(express.static(PUBLIC, { setHeaders: (res, file) => { if (file.includes(path.sep + "vendor" + path.sep)) res.set("Cache-Control", "public, max-age=604800"); } })); // /vendor casi nunca cambia: caché de 7 días
 app.use((err, req, res, next) => { console.error("Error en " + req.method + " " + req.path + ":", err?.message || err); if (res.headersSent) return next(err); res.status(500).json({ error: "Error interno" }); });
 

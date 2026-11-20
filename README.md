@@ -11,7 +11,7 @@ Sube, organiza, edita y comparte archivos desde cualquier dispositivo, con usuar
 
 </div>
 
-> **Versión 2.22.0.** Qué ha cambiado en esta versión: consulta [RELEASE.md](RELEASE.md).
+> **Versión 2.24.1.** Qué ha cambiado en esta versión: consulta [RELEASE.md](RELEASE.md).
 
 ---
 
@@ -172,6 +172,7 @@ Variables de entorno:
 | --- | --- | --- |
 | `PORT` | `3001` | Puerto en el que escucha el servidor. |
 | `TRUST_PROXY` | _(vacío)_ | Pon `1` si estás detrás de un proxy inverso (Nginx, Caddy, Cloudflare…) para obtener la IP real y las cookies `Secure`. |
+| `CORS_ORIGINS` | _(vacío)_ | (Opcional) Orígenes de apps con WebView (Capacitor, Tauri, Electron…) que pueden usar la API con token, separados por comas (ej. `capacitor://localhost,https://tauri.localhost`). Las apps nativas no lo necesitan. Ver [Apps (Android, Windows, Linux)](#apps-android-windows-linux). |
 | `DISCORD_TOKEN` | _(vacío)_ | Token del bot de Discord. Sin él, el bot no se activa. Ver [Bot de Discord](#bot-de-discord-opcional). |
 | `DISCORD_GUILD_ID` | _(vacío)_ | (Opcional) ID de tu servidor de Discord: los comandos aparecen al instante solo en él. |
 | `PUBLIC_URL` | _(vacío)_ | (Opcional) Dirección pública de tu SynapseBox, sin barra final (ej. `https://nube.ejemplo.com`). El bot la usa para dar enlaces completos, y los anuncios de la IA para crear sus enlaces de retorno (también se puede poner en Admin → IA → Anuncios). |
@@ -380,7 +381,7 @@ En **Admin → IA → Anuncios** el administrador decide, para el asistente del 
 - La versión instalada está en `data/version.json`:
 
   ```json
-  { "version": "2.22.0" }
+  { "version": "2.24.1" }
   ```
 
 - Cada 2 minutos el servidor lee ese archivo local y lo compara con el `data/version.json` publicado en GitHub. Si el de GitHub es más nuevo (se comparan los números: `2.10` es mayor que `2.9`), los **administradores** ven un aviso de nueva versión con instrucciones para actualizar.
@@ -619,7 +620,7 @@ Los plugins instalados viven en `data/plugins/` y su estado en `data/plugins-sta
 - Bloqueo temporal tras 5 intentos fallidos de acceso, también en el segundo factor y en la recuperación de cuenta.
 - 2FA con TOTP (RFC 6238): cada código solo se acepta una vez y el paso intermedio del inicio de sesión caduca a los 5 minutos.
 - Los códigos de recuperación se guardan solo como hash y se gastan al usarse.
-- Protección CSRF mediante comprobación del origen.
+- Protección CSRF mediante comprobación del origen. Las peticiones con token `Authorization: Bearer` (apps) no usan cookie y quedan fuera del CSRF; el token Bearer no se mezcla nunca con la cookie y los orígenes de `CORS_ORIGINS` solo pueden iniciar sesión o usar el token, sin credenciales de navegador.
 - Rutas validadas contra _path traversal_; los archivos de los usuarios nunca se sirven de forma pública sin un enlace.
 - Los archivos HTML o de script subidos se sirven aislados (`sandbox`) para que no puedan actuar con la sesión de nadie.
 - **WebDAV**: la clave se genera al azar (≈100 bits), solo se guarda su hash, cada usuario solo ve su carpeta (también se comprueban los enlaces simbólicos), hay bloqueo tras 5 intentos fallidos y la cuota se respeta.
@@ -736,12 +737,30 @@ Los plugins instalados viven en `data/plugins/` y su estado en `data/plugins-sta
 └── data/                  # Base de datos SQLite (se crea sola) y version.json
 ```
 
+## Apps (Android, Windows, Linux)
+
+Además de la cookie del navegador, la API admite un **token de sesión** equivalente a la cookie, pensado para apps nativas.
+
+1. **Iniciar sesión:** `POST /api/login` con `{ "username", "password", "client": "android", "device": "Pixel 8" }`. `client` puede ser `android`, `windows`, `linux`, `macos`, `ios` o `app`; con él **no se envía cookie** y la sesión aparece con ese nombre en «Mis sesiones». Sin `client` (navegador) se envía la cookie y además el token.
+2. **Respuesta:** `{ "success": true, "token": "…64 hex…", "token_type": "Bearer", "expires_at": 1767225600000, "expires_in": 604800, "admin": false, "user": { "username", "uuid", "admin" } }`. El `token` es el mismo valor que la cookie `fc_sid`. Con 2FA, el primer paso devuelve `{ "need2fa": true, "ticket": "…" }` y `POST /api/login/2fa` con `{ "ticket", "code", "client", "device" }` devuelve el token. `POST /api/register` también lo devuelve.
+3. **Usarlo:** cabecera `Authorization: Bearer <token>` en todas las peticiones. Si llega un Bearer se usa **solo** ese (aunque haya cookie) y, al no haber cookie, no aplica la comprobación CSRF.
+4. **Renovar:** `POST /api/session/renew` alarga la sesión actual otro periodo completo y devuelve `expires_at`. `GET /api/session` indica `"via": "token"` o `"cookie"`.
+5. **Cerrar sesión:** `POST /api/logout` con el Bearer revoca ese token; `GET/POST /api/sessions` y `POST /api/sessions/revoke` listan y cierran las demás.
+6. **Descargas y vistas previas:** las rutas de archivos (`/api/download`, `/api/preview`…) también aceptan el Bearer; con HTTP nativo se envía la cabecera y se guarda la respuesta. El token no se acepta por la URL a propósito (acabaría en registros y historiales).
+7. **Apps con WebView** (Capacitor, Tauri, Electron): añade su origen a `CORS_ORIGINS`; se permiten las cabeceras `Authorization` y `Content-Type` sin cookies. Las apps nativas (Kotlin/OkHttp, .NET, Rust, Python, Qt…) no envían `Origin` y no necesitan nada.
+
+El token caduca según la duración de sesión de **Admin → Avanzado** (1-90 días), se guarda solo como hash en el servidor y debe almacenarse en el almacén seguro del sistema (Keystore de Android, Credential Locker/DPAPI de Windows, Secret Service/libsecret en Linux).
+
+El proyecto de la **app de Android** (Kotlin, Android 7 a 16) se distribuye aparte; usa el token Bearer y `/api/sync/*`.
+
 ## API
 
 Todas las rutas `/api/*` devuelven JSON y requieren sesión, salvo `login`, `register` y `session`.
 
 | Método | Ruta | Descripción |
 | --- | --- | --- |
+| `GET` / `PUT` | `/api/sync/tree?path=`, `/api/sync/file?path=&mtime=` | Sincronización de carpetas (app de Android): listado recursivo de una carpeta y subida en bruto que sobrescribe y conserva la fecha. Admite `collab=<id>`. |
+| `POST` | `/api/session/renew` | Renueva la sesión actual (cookie o token Bearer) y devuelve la nueva caducidad. Ver [Apps](#apps-android-windows-linux). |
 | `POST` | `/api/register`, `/api/login`, `/api/login/2fa`, `/api/logout` | Cuenta y sesión (el registro pide la contraseña dos veces y devuelve los códigos de recuperación; `login/2fa` completa el inicio de sesión con el código TOTP). |
 | `GET`/`POST` | `/api/security`, `/api/2fa/setup`, `/api/2fa/enable`, `/api/2fa/disable`, `/api/recovery/regenerate` | 2FA (TOTP) y códigos de recuperación de la cuenta propia. |
 | `GET`/`POST`/`DELETE` | `/api/admin/plugins`, `/api/admin/plugins/:id/toggle`, `/api/admin/plugins/market`, `/api/admin/plugins/market/install`, `/api/admin/plugins/publish` | Plugins (solo admin): instalados, activar/desactivar, catálogo, descargar y subir al repositorio. |

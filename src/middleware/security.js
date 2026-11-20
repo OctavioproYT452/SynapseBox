@@ -12,9 +12,23 @@ const headers = (req, res, next) => {
   if (req.path.startsWith("/api/")) res.set("Cache-Control", "no-store"); // las respuestas de la API nunca se guardan en cachés
   next();
 };
+// Orígenes de apps con WebView (Capacitor, Tauri, Electron…) que pueden llamar a la API con token Bearer. Variable CORS_ORIGINS, separados por comas.
+// Ej.: CORS_ORIGINS=capacitor://localhost,https://tauri.localhost,http://localhost. Vacío (por defecto) = ninguno. Las apps nativas (sin WebView) no lo necesitan.
+const ORIGINS = (process.env.CORS_ORIGINS || "").split(",").map(s => s.trim().replace(/\/+$/, "")).filter(Boolean);
+const cors = (req, res, next) => {
+  const o = req.headers.origin;
+  if (o && ORIGINS.includes(o) && req.path.startsWith("/api/")) {
+    res.set({ "Access-Control-Allow-Origin": o, Vary: "Origin", "Access-Control-Allow-Headers": "Authorization, Content-Type", "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS", "Access-Control-Max-Age": "600", "Access-Control-Expose-Headers": "Content-Disposition" }); // sin Allow-Credentials: las cookies no viajan, solo el token
+    if (req.method === "OPTIONS") return res.status(204).end();
+  }
+  next();
+};
 const body = [express.json({ limit: "3mb" }), express.urlencoded({ extended: false, limit: "10kb" })];
 const csrf = (req, res, next) => { // protección CSRF: el origen debe coincidir con el host
   if (!["GET", "HEAD", "OPTIONS"].includes(req.method)) {
+    const o = req.headers.origin, authPath = /^\/api\/(login|login\/2fa|register|recover|recover\/check)$/.test(req.path);
+    if (/^Bearer /i.test(String(req.headers.authorization || ""))) return next(); // con token Bearer no hay cookie de por medio: no hay CSRF
+    if (o && ORIGINS.includes(o) && authPath) return next(); // app con WebView iniciando sesión
     if (req.headers.origin) {
       try { if (new URL(req.headers.origin).host !== req.headers.host) throw 0; }
       catch { return res.status(403).json({ error: "Origen no permitido" }); }
@@ -23,4 +37,4 @@ const csrf = (req, res, next) => { // protección CSRF: el origen debe coincidir
   next();
 };
 
-module.exports = { headers, body, csrf };
+module.exports = { headers, cors, body, csrf };
