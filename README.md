@@ -11,7 +11,7 @@ Sube, organiza, edita y comparte archivos desde cualquier dispositivo, con usuar
 
 </div>
 
-> **Versión 2.24.1.** Qué ha cambiado en esta versión: consulta [RELEASE.md](RELEASE.md).
+> **Versión 2.25.0.** Qué ha cambiado en esta versión: consulta [RELEASE.md](RELEASE.md).
 
 ---
 
@@ -381,7 +381,7 @@ En **Admin → IA → Anuncios** el administrador decide, para el asistente del 
 - La versión instalada está en `data/version.json`:
 
   ```json
-  { "version": "2.24.1" }
+  { "version": "2.25.0" }
   ```
 
 - Cada 2 minutos el servidor lee ese archivo local y lo compara con el `data/version.json` publicado en GitHub. Si el de GitHub es más nuevo (se comparan los números: `2.10` es mayor que `2.9`), los **administradores** ven un aviso de nueva versión con instrucciones para actualizar.
@@ -750,6 +750,26 @@ Además de la cookie del navegador, la API admite un **token de sesión** equiva
 7. **Apps con WebView** (Capacitor, Tauri, Electron): añade su origen a `CORS_ORIGINS`; se permiten las cabeceras `Authorization` y `Content-Type` sin cookies. Las apps nativas (Kotlin/OkHttp, .NET, Rust, Python, Qt…) no envían `Origin` y no necesitan nada.
 
 El token caduca según la duración de sesión de **Admin → Avanzado** (1-90 días), se guarda solo como hash en el servidor y debe almacenarse en el almacén seguro del sistema (Keystore de Android, Credential Locker/DPAPI de Windows, Secret Service/libsecret en Linux).
+
+### API para apps nativas (2.25.0)
+Todas con `Authorization: Bearer <token>` (salvo las marcadas como públicas). Rutas relativas a tu carpeta; admiten `collab=<id>`.
+
+| Ruta | Qué hace |
+| --- | --- |
+| `GET /api/client/info` (pública) | `{app, version, api, features[], registration, maintenance, platforms}`; con sesión añade `user`, `quota {usedBytes,maxMB}` y `limits`. Úsala para detectar funciones del servidor (`features`). |
+| `GET /api/sync/tree?path=&since=&dirs=` | Listado recursivo. `since=<ms>` solo archivos con `mtime` posterior; `dirs=0` omite carpetas. Devuelve también `serverTime`. |
+| `PUT /api/sync/file?path=&mtime=` | Subida simple en bruto (sobrescribe, fija la fecha). |
+| `POST /api/sync/upload` `{path,size,mtime}` | Inicia una **subida reanudable** → `{id, offset:0, chunkMax}`. |
+| `PATCH /api/sync/upload/:id` | Sube un trozo: cabecera `Upload-Offset` = bytes ya subidos, `Content-Type: application/offset+octet-stream`. Responde `{offset, complete}`; con desfase, `409` y el `offset` real. |
+| `GET /api/sync/upload/:id` | Estado (`offset`) para continuar tras un corte. |
+| `POST /api/sync/upload/:id/commit` `{sha256?}` | Coloca el archivo (sobrescribe) y fija la fecha; con `sha256` verifica la integridad. |
+| `DELETE /api/sync/upload/:id` | Cancela. Las subidas inacabadas caducan a las 24 h (máx. 20 a la vez por usuario). |
+| `POST /api/sync/move` `{from,to}` | Mueve o renombra sin volver a subir (crea carpetas del destino; `409` si ya existe). |
+| `POST /api/sync/delete-batch` `{paths:[…]}` | Borra hasta 500 rutas a la papelera; devuelve `results[{path,ok,…}]`. |
+| `GET /api/sync/hash?path=` | `{size, mtime, sha256}` de un archivo. |
+| `GET /api/download?path=` | Admite `Range` (reanudar descargas). |
+| `GET /api/client/update?platform=&version=` (pública) | `{published, latest, url, sha256, notes, update_available, mandatory}` según lo que publique el administrador. |
+| `GET` / `PUT /api/admin/client-updates` | (Admin) ver o publicar `{platform, version, url(https), sha256?, notes?, mandatory?, min_version?}`; `{platform, remove:true}` lo quita. |
 
 El proyecto de la **app de Android** (Kotlin, Android 7 a 16) se distribuye aparte; usa el token Bearer y `/api/sync/*`.
 

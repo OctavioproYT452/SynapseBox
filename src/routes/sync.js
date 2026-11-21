@@ -12,6 +12,7 @@ const MAX_ITEMS = 200000;
 // Todo el contenido de una carpeta (archivos y subcarpetas) de una sola vez, con rutas relativas a esa carpeta.
 router.get("/api/sync/tree", need, wrap(async (req, res) => {
   const sp = await space(req, "read"), start = safe(sp.root, req.query.path || ""), items = [];
+  const since = Number(req.query.since) || 0, withDirs = req.query.dirs !== "0"; // ?since=<ms>: solo archivos modificados después de esa fecha; ?dirs=0: sin carpetas
   const st = await fsp.stat(start).catch(() => null);
   if (!st) return res.json({ items, exists: false });
   if (!st.isDirectory()) throw Error("La ruta remota no es una carpeta");
@@ -21,12 +22,12 @@ router.get("/api/sync/tree", need, wrap(async (req, res) => {
       if (items.length >= MAX_ITEMS) throw Error("Demasiados elementos para sincronizar (máximo 200 000)");
       const p = path.join(dir, e.name), r = rel ? rel + "/" + e.name : e.name, s = await fsp.stat(p).catch(() => null);
       if (!s) continue;
-      items.push({ path: r, isDir: e.isDirectory(), size: e.isDirectory() ? 0 : s.size, mtime: Math.round(s.mtimeMs) });
+      if (e.isDirectory() ? withDirs : s.mtimeMs > since) items.push({ path: r, isDir: e.isDirectory(), size: e.isDirectory() ? 0 : s.size, mtime: Math.round(s.mtimeMs) });
       if (e.isDirectory()) await walk(p, r);
     }
   };
   await walk(start, "");
-  res.json({ items, exists: true });
+  res.json({ items, exists: true, serverTime: Date.now() });
 }));
 
 // Subida en bruto (cuerpo = contenido del archivo) que SOBRESCRIBE si existe y fija la fecha de modificación (?mtime=ms).

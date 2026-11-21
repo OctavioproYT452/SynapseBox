@@ -18,7 +18,7 @@ const ORIGINS = (process.env.CORS_ORIGINS || "").split(",").map(s => s.trim().re
 const cors = (req, res, next) => {
   const o = req.headers.origin;
   if (o && ORIGINS.includes(o) && req.path.startsWith("/api/")) {
-    res.set({ "Access-Control-Allow-Origin": o, Vary: "Origin", "Access-Control-Allow-Headers": "Authorization, Content-Type", "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS", "Access-Control-Max-Age": "600", "Access-Control-Expose-Headers": "Content-Disposition" }); // sin Allow-Credentials: las cookies no viajan, solo el token
+    res.set({ "Access-Control-Allow-Origin": o, Vary: "Origin", "Access-Control-Allow-Headers": "Authorization, Content-Type, Upload-Offset", "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS", "Access-Control-Max-Age": "600", "Access-Control-Expose-Headers": "Content-Disposition, Accept-Ranges, Content-Range" }); // sin Allow-Credentials: las cookies no viajan, solo el token
     if (req.method === "OPTIONS") return res.status(204).end();
   }
   next();

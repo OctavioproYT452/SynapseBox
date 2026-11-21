@@ -48,6 +48,7 @@ app.use(require("./routes/collab"));
 app.use(require("./routes/share-page"));
 app.use(require("./routes/admin"));
 app.use(require("./routes/sync"));
+app.use(require("./routes/client"));
 app.use(require("./routes/ads"));
 app.use(require("./routes/storage"));
 app.use(require("./routes/extras"));
