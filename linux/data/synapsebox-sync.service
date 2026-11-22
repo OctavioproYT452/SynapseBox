@@ -1,0 +1,12 @@
+[Unit]
+Description=SynapseBox: sincronización de carpetas en segundo plano
+After=network-online.target
+
+[Service]
+ExecStart=@BIN@ --daemon
+Restart=on-failure
+RestartSec=30
+Nice=10
+
+[Install]
+WantedBy=default.target

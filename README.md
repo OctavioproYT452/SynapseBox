@@ -11,7 +11,7 @@ Sube, organiza, edita y comparte archivos desde cualquier dispositivo, con usuar
 
 </div>
 
-> **Versión 2.25.0.** Qué ha cambiado en esta versión: consulta [RELEASE.md](RELEASE.md).
+> **Versión 2.25.1.** Qué ha cambiado en esta versión: consulta [RELEASE.md](RELEASE.md).
 
 ---
 
@@ -381,7 +381,7 @@ En **Admin → IA → Anuncios** el administrador decide, para el asistente del 
 - La versión instalada está en `data/version.json`:
 
   ```json
-  { "version": "2.25.0" }
+  { "version": "2.25.1" }
   ```
 
 - Cada 2 minutos el servidor lee ese archivo local y lo compara con el `data/version.json` publicado en GitHub. Si el de GitHub es más nuevo (se comparan los números: `2.10` es mayor que `2.9`), los **administradores** ven un aviso de nueva versión con instrucciones para actualizar.
@@ -772,6 +772,28 @@ Todas con `Authorization: Bearer <token>` (salvo las marcadas como públicas). R
 | `GET` / `PUT /api/admin/client-updates` | (Admin) ver o publicar `{platform, version, url(https), sha256?, notes?, mandatory?, min_version?}`; `{platform, remove:true}` lo quita. |
 
 El proyecto de la **app de Android** (Kotlin, Android 7 a 16) se distribuye aparte; usa el token Bearer y `/api/sync/*`.
+
+### App de Linux (escritorio)
+Cliente de escritorio (GTK 4, Rust) con inicio de sesión y registro, espacio usado y **sincronización de una carpeta** (bidireccional, solo subir o solo bajar; copia inicial, solo cambios; nuevos, modificados, borrados y carpetas por separado). Usa el token Bearer y toda la API para apps (`/api/sync/*`, `/api/client/*`); con servidor 2.25 o superior aprovecha la subida reanudable, los renombrados y el borrado por lotes. Se distribuye como **código fuente** en un `.tar.gz` y **cada PC lo compila para sí mismo** (optimizado para su procesador), así que es rápido y ligero.
+
+**Instalar**
+1. Dependencias (una vez): Debian/Ubuntu `sudo apt install build-essential pkg-config libgtk-4-dev cargo` · Fedora `sudo dnf install gcc pkgconf-pkg-config gtk4-devel cargo` · Arch `sudo pacman -S base-devel gtk4 rust` (Rust 1.80 o superior; si tu `cargo` es más antiguo, usa <https://rustup.rs>).
+2. Descarga `SynapseBox-vX.Y.Z.tar.gz` de la carpeta [`APPS/Linux`](https://github.com/OctavioproYT452/SynapseBox/tree/main/APPS/Linux), descomprímelo y ejecuta el instalador:
+   ```bash
+   tar -xzf SynapseBox-v1.0.0.tar.gz
+   cd synapsebox-linux-1.0.0
+   ./install.sh                 # para tu usuario (~/.local), sin sudo
+   ./install.sh --service       # además, sincronización en segundo plano al iniciar sesión
+   sudo ./install.sh --prefix /usr/local   # para todos los usuarios
+   ```
+3. Abre **SynapseBox** desde el menú de aplicaciones y escribe la dirección de tu servidor (o un enlace de ngrok).
+
+**Actualizar**
+- **Desde la app:** *Actualizaciones* → *Buscar actualizaciones* → *Descargar, compilar e instalar*. La app revisa la carpeta `APPS/Linux` de la rama `main` del repositorio, elige el `SynapseBox-vX.Y.Z.tar.gz` de versión más alta, lo compila en tu PC y se reinstala donde estaba. También avisa con una notificación (una vez al día; se puede desactivar).
+- **Desde la terminal:** `synapsebox-linux --update`, o descarga el nuevo `.tar.gz` y vuelve a ejecutar `./install.sh`.
+- **Publicar una versión (administrador):** sube la versión en `Cargo.toml`, ejecuta `./make-release.sh` y sube `dist/SynapseBox-vX.Y.Z.tar.gz` a `APPS/Linux/`.
+
+Desinstalar: `./uninstall.sh` (con `--purge` borra también los ajustes; tus archivos no se tocan). Más detalles en `LEEME-LINUX.md` dentro del paquete.
 
 ## API
 
