@@ -774,14 +774,14 @@ Todas con `Authorization: Bearer <token>` (salvo las marcadas como públicas). R
 El proyecto de la **app de Android** (Kotlin, Android 7 a 16) se distribuye aparte; usa el token Bearer y `/api/sync/*`.
 
 ### App de Linux (escritorio)
-Cliente de escritorio (GTK 4, Rust) con inicio de sesión y registro, espacio usado y **sincronización de una carpeta** (bidireccional, solo subir o solo bajar; copia inicial, solo cambios; nuevos, modificados, borrados y carpetas por separado). Usa el token Bearer y toda la API para apps (`/api/sync/*`, `/api/client/*`); con servidor 2.25 o superior aprovecha la subida reanudable, los renombrados y el borrado por lotes. Se distribuye como **código fuente** en un `.tar.gz` y **cada PC lo compila para sí mismo** (optimizado para su procesador), así que es rápido y ligero.
+Cliente de escritorio (GTK 4, Rust, iconos SVG) y **comando `sbox` para la terminal** con inicio de sesión y registro, espacio usado y **sincronización de una carpeta** (bidireccional, solo subir o solo bajar; copia inicial, solo cambios; nuevos, modificados, borrados y carpetas por separado). Usa el token Bearer y toda la API para apps (`/api/sync/*`, `/api/client/*`); con servidor 2.25 o superior aprovecha la subida reanudable, los renombrados y el borrado por lotes. Se distribuye como **código fuente** en un `.tar.gz` y **cada PC lo compila para sí mismo** (optimizado para su procesador), así que es rápido y ligero.
 
 **Instalar**
 1. Dependencias (una vez): Debian/Ubuntu `sudo apt install build-essential pkg-config libgtk-4-dev cargo` · Fedora `sudo dnf install gcc pkgconf-pkg-config gtk4-devel cargo` · Arch `sudo pacman -S base-devel gtk4 rust` (Rust 1.80 o superior; si tu `cargo` es más antiguo, usa <https://rustup.rs>).
-2. Descarga `SynapseBox-vX.Y.Z.tar.gz` de la carpeta [`APPS/Linux`](https://github.com/OctavioproYT452/SynapseBox/tree/main/APPS/Linux), descomprímelo y ejecuta el instalador:
+2. Descarga `SynapseBox-vX.Y.Z.tar.gz` de la carpeta [`APPS/Linux/dist`](https://github.com/OctavioproYT452/SynapseBox/tree/main/APPS/Linux/dist), descomprímelo y ejecuta el instalador:
    ```bash
-   tar -xzf SynapseBox-v1.0.0.tar.gz
-   cd synapsebox-linux-1.0.0
+   tar -xzf SynapseBox-v1.1.1.tar.gz
+   cd synapsebox-linux-1.1.1
    ./install.sh                 # para tu usuario (~/.local), sin sudo
    ./install.sh --service       # además, sincronización en segundo plano al iniciar sesión
    sudo ./install.sh --prefix /usr/local   # para todos los usuarios
@@ -789,9 +789,25 @@ Cliente de escritorio (GTK 4, Rust) con inicio de sesión y registro, espacio us
 3. Abre **SynapseBox** desde el menú de aplicaciones y escribe la dirección de tu servidor (o un enlace de ngrok).
 
 **Actualizar**
-- **Desde la app:** *Actualizaciones* → *Buscar actualizaciones* → *Descargar, compilar e instalar*. La app revisa la carpeta `APPS/Linux` de la rama `main` del repositorio, elige el `SynapseBox-vX.Y.Z.tar.gz` de versión más alta, lo compila en tu PC y se reinstala donde estaba. También avisa con una notificación (una vez al día; se puede desactivar).
-- **Desde la terminal:** `synapsebox-linux --update`, o descarga el nuevo `.tar.gz` y vuelve a ejecutar `./install.sh`.
-- **Publicar una versión (administrador):** sube la versión en `Cargo.toml`, ejecuta `./make-release.sh` y sube `dist/SynapseBox-vX.Y.Z.tar.gz` a `APPS/Linux/`.
+- **Desde la app:** *Actualizaciones* → *Buscar actualizaciones* → *Descargar, compilar e instalar*. La app revisa la carpeta `APPS/Linux/dist` de la rama `main` del repositorio, elige el `SynapseBox-vX.Y.Z.tar.gz` de versión más alta, lo compila en tu PC y se reinstala donde estaba. También avisa con una notificación (una vez al día; se puede desactivar).
+- **Desde la terminal:** `sbox update install`, o descarga el nuevo `.tar.gz` y vuelve a ejecutar `./install.sh`.
+- **Publicar una versión (administrador):** sube la versión en `Cargo.toml`, ejecuta `./make-release.sh` y sube `dist/SynapseBox-vX.Y.Z.tar.gz` a `APPS/Linux/dist/`.
+
+**Terminal (`sbox`)** — todas las funciones también están en la línea de órdenes (el instalador crea el comando `sbox` y su autocompletado de bash; comparte ajustes y sesión con la interfaz y el servicio):
+
+```bash
+sbox login -s https://nube.ejemplo.com -u ana      # pide la contraseña sin mostrarla (--password-stdin para scripts; --code para 2FA)
+sbox status                                        # sesión, servidor, espacio y sincronización (--json disponible)
+sbox ls Documentos -l                              # lista una carpeta del servidor
+sbox upload foto.jpg informe.pdf -d Trabajo        # sube (sin destino: «Subidas del PC»; nunca pisa archivos salvo --overwrite)
+sbox download Trabajo/informe.pdf -o ~/Descargas   # baja un archivo o una carpeta entera
+sbox mkdir Trabajo/2026 ; sbox mv a.txt Trabajo ; sbox rm viejo.txt -y ; sbox share Trabajo/informe.pdf --days 7
+sbox sync folder ~/Nube Documentos ; sbox sync on ; sbox sync now      # sincronización de carpeta
+sbox config list ; sbox config set mode upload ; sbox config set interval 30
+sbox service on                                    # sincroniza en segundo plano (systemd de usuario)
+sbox sessions ; sbox passwd ; sbox trash ; sbox search informe ; sbox update install ; sbox gui
+```
+`sbox help` muestra todas las órdenes. Sin servidor 2.25 o superior, `mv` solo mueve a una carpeta existente o renombra dentro de la misma carpeta.
 
 Desinstalar: `./uninstall.sh` (con `--purge` borra también los ajustes; tus archivos no se tocan). Más detalles en `LEEME-LINUX.md` dentro del paquete.
 
