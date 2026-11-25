@@ -22,6 +22,11 @@ Necesita un servidor SynapseBox **2.24.1 o superior** (trae la API de sincroniza
 - **Acceso a todos los archivos:** Android 11+ → permiso «Acceso a todos los archivos»; Android 7–10 → permiso de almacenamiento. Sin él no se puede sincronizar una carpeta elegida libremente.
 - **Seguridad:** el token se guarda cifrado con el Android Keystore (AES-GCM); admite 2FA; avisa si usas `http://`.
 
+## Novedades 1.7.0
+
+- **Archivos de usuarios (solo administradores):** nueva sección en Inicio → *Administración*. Lista los usuarios (espacio usado, admin, suspendido); al pulsar uno se navega por sus carpetas y archivos, con filtro por nombre. Pulsar (o mantener pulsado) un elemento permite **Ver** (se abre con otra app), **Descargar** (eliminar y descargar guardan donde elijas) y **Eliminar** (va a la papelera de ese usuario). **No** crea, modifica ni renombra nada. Usa `/api/admin/files`, `/api/admin/file` y `/api/admin/delete-file`, que el servidor solo permite a administradores; la opción se oculta a cuentas normales. Las carpetas no se pueden descargar enteras.
+- **Nuevo diseño de Inicio:** mosaicos con iconos (Subir, Mis archivos, Sincronizar, Configurar, Más funciones, Apariencia, Seguridad, Actualizaciones), secciones con título y espacio usado destacado. Iconos SVG nuevos (`ic_users`, `ic_file`, `ic_sync`, `ic_upload`, `ic_palette`, `ic_shield`, `ic_grid`, `ic_update`, `ic_eye`, `ic_admin`).
+
 ## Novedades 1.6.1
 
 - Los emojis de la interfaz (estado, sincronización, registro, diagnóstico, «Volver») se han sustituido por iconos vectoriales SVG que toman el color del texto (`res/drawable/ic_*.xml`, clase `Ic`).
