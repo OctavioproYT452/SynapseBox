@@ -786,6 +786,8 @@ App para Android 7.0 y posteriores (incluido Android 16), con servidor SynapseBo
 **Actualizar:** desde la propia app (*Inicio → Buscar actualizaciones*; avisa una vez al día) o instalando el APK nuevo encima (se conservan sesión y ajustes); si junto al APK hay un `.sha256`, se verifica antes de instalar. **Compilar:** Android Studio o JDK 17 + Android SDK 36 con Gradle (ver `LEEME-ANDROID.md`, y `COMPILAR-EN-TERMUX.md` para hacerlo en el propio móvil).
 
 ### App de Windows (escritorio)
+> **1.2.0:** en el inicio de sesión, «¿No tienes un servidor?» abre PowerShell y ejecuta el instalador oficial (`get.ps1`) para montar SynapseBox en ese mismo PC (`sbox install-server` desde la terminal). **1.1.0:** nuevo gestor **Archivos de usuarios** solo para administradores (ventana y terminal: `sbox admin users | ls | get | rm`). Ve, descarga y elimina archivos y carpetas de cualquier usuario sin crear ni modificar nada; lo eliminado va a la papelera de ese usuario.
+
 Cliente para Windows 10/11 (64 bits), en Rust: `synapsebox.exe` (ventana con iconos SVG: sesión, registro, espacio, subida de archivos, **sincronización de una carpeta**, sesiones, contraseña, actualizaciones) y `sbox.exe` (línea de órdenes con todas las funciones, mismas órdenes que `sbox` en Linux). Usa el token Bearer y la API para apps (`client: "windows"`). Se compila **desde Debian 13 solo con la terminal** (compilación cruzada con mingw-w64) y se instala con un script de PowerShell para tu usuario, sin administrador.
 
 **Dónde está**
@@ -833,6 +835,8 @@ Todas con `Authorization: Bearer <token>` (salvo las marcadas como públicas). R
 El proyecto de la **app de Android** (Kotlin, Android 7 a 16) se distribuye aparte; usa el token Bearer y `/api/sync/*`.
 
 ### App de Linux (escritorio)
+> **1.3.0:** en el inicio de sesión, «¿No tienes un servidor?» abre una terminal y ejecuta el instalador oficial (`get.sh`) para montar SynapseBox en ese mismo equipo (`sbox install-server` desde la terminal). **1.2.0:** nuevo gestor **Archivos de usuarios** solo para administradores (ventana y terminal: `sbox admin users | ls | get | rm`). Ve, descarga y elimina archivos y carpetas de cualquier usuario sin crear ni modificar nada; lo eliminado va a la papelera de ese usuario.
+
 Cliente de escritorio (GTK 4, Rust, iconos SVG) y **comando `sbox` para la terminal** con inicio de sesión y registro, espacio usado y **sincronización de una carpeta** (bidireccional, solo subir o solo bajar; copia inicial, solo cambios; nuevos, modificados, borrados y carpetas por separado). Usa el token Bearer y toda la API para apps (`/api/sync/*`, `/api/client/*`); con servidor 2.25 o superior aprovecha la subida reanudable, los renombrados y el borrado por lotes. Se distribuye como **código fuente** en un `.tar.gz` y **cada PC lo compila para sí mismo** (optimizado para su procesador), así que es rápido y ligero.
 
 **Instalar**

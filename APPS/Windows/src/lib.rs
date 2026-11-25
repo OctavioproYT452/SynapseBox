@@ -5,6 +5,7 @@ pub mod config;
 pub mod gui;
 pub mod ops;
 pub mod runner;
+pub mod serverinst;
 pub mod sync;
 pub mod timefmt;
 pub mod update;

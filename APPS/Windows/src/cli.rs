@@ -2,7 +2,7 @@
 //! sin abrir la interfaz. Usa la misma configuración (~/.config/synapsebox) que la interfaz y el servicio, así que se pueden mezclar.
 use crate::api::{self, Api, Fail, R};
 use crate::config::{self, Config, Lock, Status, VERSION};
-use crate::{ops, runner, update};
+use crate::{ops, runner, serverinst, update};
 use std::collections::{HashMap, HashSet};
 use std::io::{BufRead, IsTerminal, Write};
 use std::path::PathBuf;
@@ -31,6 +31,16 @@ ARCHIVOS EN SYNAPSEBOX
   share <ruta> [--days N] [--password P]  crea un enlace público
   search <texto>                          busca por nombre
   trash [restore ID | empty [-y]]         papelera del servidor
+
+ADMINISTRADORES (solo cuentas de administrador; leer, descargar y borrar; no crea ni modifica)
+  admin users [--json]                    usuarios y espacio usado
+  admin ls <usuario> [ruta] [-l]          lista los archivos de un usuario
+  admin get <usuario> <ruta> [-o destino] descarga un archivo de un usuario
+  admin rm <usuario> <ruta>… [-y]         borra a la papelera de ese usuario
+
+SERVIDOR EN ESTE EQUIPO
+  install-server [-y] [--no-start]        instala SynapseBox (el servidor) aquí con el instalador oficial y lo arranca
+                                          (después: sbox server http://localhost:3001)
 
 SINCRONIZACIÓN DE CARPETA
   sync [now]                              sincroniza ahora y muestra el progreso
@@ -170,6 +180,8 @@ pub fn run(argv: Vec<String>) -> i32 {
         "share" | "compartir" => share(rest),
         "search" | "buscar" => search(rest),
         "trash" | "papelera" => trash(rest),
+        "admin" => admin(rest),
+        "install-server" | "instalar-servidor" => install_server(rest),
         "sync" | "sincronizar" => sync(rest),
         "config" | "ajustes" => config_cmd(rest),
         "service" | "servicio" => service(rest),
@@ -303,6 +315,54 @@ fn download(args: &[String]) {
     let s = ok(ops::download_path(&api, r, &dest, &mut |l| println!("{}", l)));
     println!("Descargados {} archivo(s).", s.ok);
     if !s.failed.is_empty() { for f in &s.failed { eprintln!("  falló: {}", f); } std::process::exit(1) }
+}
+fn admin(args: &[String]) {
+    let a = Args::parse(args, &["out"], &[("o", "out"), ("y", "yes")]); let (_, api) = session();
+    match a.pos.first().map(|s| s.as_str()) {
+        None | Some("users") | Some("usuarios") => {
+            let us = ok(api.admin_users());
+            if a.has("json") { json_out(&serde_json::Value::Array(us.iter().map(|u| serde_json::json!({"username": u.0, "admin": u.1, "suspended": u.2, "usedBytes": u.3, "maxMB": u.4})).collect())); return }
+            for (n, adm, susp, used, max) in us {
+                let q = if max > 0.0 { format!("{} de {}", fmt_bytes(used), fmt_bytes((max * 1048576.0) as i64)) } else { format!("{} (sin límite)", fmt_bytes(used)) };
+                println!("{:<24} {}{}{}", n, q, if adm { "  [admin]" } else { "" }, if susp { "  [suspendido]" } else { "" });
+            }
+        }
+        Some("ls") | Some("list") => {
+            let Some(u) = a.pos.get(1) else { die("uso: sbox admin ls <usuario> [ruta] [-l]") };
+            let path = ops::clean(a.pos.get(2).map(|s| s.as_str()).unwrap_or(""));
+            let mut v = ok(api.admin_list(u, &path)); v.sort_by(|x, y| y.is_dir.cmp(&x.is_dir).then(x.name.to_lowercase().cmp(&y.name.to_lowercase())));
+            for e in v {
+                if a.has("l") { println!("{} {:>10}  {}  {}{}", if e.is_dir { "d" } else { "-" }, if e.is_dir { "-".to_string() } else { fmt_bytes(e.size) }, date(e.mtime), e.name, if e.is_dir { "/" } else { "" }); }
+                else { println!("{}{}", e.name, if e.is_dir { "/" } else { "" }); }
+            }
+        }
+        Some("get") | Some("download") | Some("bajar") => {
+            let (Some(u), Some(p)) = (a.pos.get(1), a.pos.get(2)) else { die("uso: sbox admin get <usuario> <ruta-del-archivo> [-o destino]") };
+            let p = ops::clean(p); let out = PathBuf::from(shellexpand(a.get("out").unwrap_or(".")));
+            let dest = if out.is_dir() { out.join(ops::base_name(&p)) } else { out };
+            ok(api.admin_download(u, &p, &dest)); println!("Guardado en {}", dest.display());
+        }
+        Some("rm") | Some("borrar") | Some("delete") => {
+            let Some(u) = a.pos.get(1) else { die("uso: sbox admin rm <usuario> <ruta>… [-y]") };
+            if a.pos.len() < 3 { die("uso: sbox admin rm <usuario> <ruta>… [-y]") }
+            if !confirm(&format!("¿Borrar {} elemento(s) de la cuenta «{}» (van a la papelera de ese usuario)?", a.pos.len() - 2, u), a.has("yes")) { println!("Cancelado."); return }
+            for p in &a.pos[2..] { ok(api.admin_delete(u, &ops::clean(p))); println!("Borrado: {}/{}", u, ops::clean(p)); }
+        }
+        Some(x) => die(&format!("subcomando desconocido «{}». Usa: users, ls, get, rm", x)),
+    }
+}
+fn install_server(args: &[String]) {
+    let a = Args::parse(args, &[], &[("y", "yes")]);
+    let start = !a.has("no-start");
+    println!("Se ejecutará en esta terminal el instalador oficial de SynapseBox (servidor):\n  {}\n", serverinst::command(start));
+    if start { println!("Al terminar, el servidor queda funcionando en esta terminal ({}); Ctrl+C lo detiene.", serverinst::LOCAL); }
+    if !confirm("¿Instalar SynapseBox en este equipo?", a.has("yes")) { println!("Cancelado."); return }
+    let st = Command::new("powershell").args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command"]).arg(serverinst::command(start)).status();
+    match st {
+        Ok(s) if s.success() => println!("\nListo. Para usar este servidor desde esta app: sbox server {}", serverinst::LOCAL),
+        Ok(s) => std::process::exit(s.code().unwrap_or(1)),
+        Err(e) => die(&format!("no se pudo ejecutar: {}", e)),
+    }
 }
 fn mkdir(args: &[String]) {
     let a = Args::parse(args, &[], &[]); let (_, api) = session();
@@ -453,7 +513,7 @@ fn update_cmd(args: &[String]) {
         Some(x) => die(&format!("subcomando desconocido «{}»", x)),
     }
 }
-const CMDS: &str = "login register logout server status whoami usage sessions passwd ls upload download mkdir rm mv cp share search trash sync config service daemon update gui completion version help";
+const CMDS: &str = "login register logout server status whoami usage sessions passwd ls upload download mkdir rm mv cp share search trash admin install-server sync config service daemon update gui completion version help";
 fn completion(_args: &[String]) {
     // PowerShell:  sbox completion | Out-String | Invoke-Expression      (añádelo a tu $PROFILE para tenerlo siempre)
     println!("Register-ArgumentCompleter -Native -CommandName sbox -ScriptBlock {{ param($w, $ast, $pos) '{}'.Split(' ') | Where-Object {{ $_ -like \"$w*\" }} | ForEach-Object {{ [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_) }} }}", CMDS);

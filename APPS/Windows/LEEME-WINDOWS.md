@@ -10,8 +10,11 @@ Se compila **desde Debian 13 con solo la terminal** (compilación cruzada con mi
 ## Compilar desde Debian 13 (solo terminal)
 
 ```bash
-unzip SynapseBox-Windows_1.0.0.zip && cd windows
+# código fuente en el repositorio: APPS/Windows
+git clone --depth 1 https://github.com/OctavioproYT452/SynapseBox.git
+cd SynapseBox/APPS/Windows
 ./build-windows.sh
+# (o, con el zip que recibiste: unzip SynapseBox-Windows_1.2.0.zip && cd windows && ./build-windows.sh)
 ```
 
 El script hace, por ti, esto (puedes copiarlo a mano si prefieres):
@@ -32,13 +35,13 @@ cargo build --release
 #    → target/x86_64-pc-windows-gnu/release/synapsebox.exe  y  sbox.exe
 ```
 
-Al terminar, `dist/SynapseBox-Windows-v1.0.0.zip` contiene los dos `.exe`, `install.ps1`/`install.cmd`, `uninstall.ps1` y este archivo. Opciones: `--skip-deps` (ya tienes todo instalado) y `--debug` (compilación rápida para probar). La primera compilación descarga las librerías y tarda unos minutos.
+Al terminar, `dist/SynapseBox-Windows-v1.2.0.zip` contiene los dos `.exe`, `install.ps1`/`install.cmd`, `uninstall.ps1` y este archivo. Opciones: `--skip-deps` (ya tienes todo instalado) y `--debug` (compilación rápida para probar). La primera compilación descarga las librerías y tarda unos minutos.
 
 Si algo falla, copia el error tal cual (las últimas 30 líneas de `cargo build`) para corregirlo.
 
 ## Instalar en Windows
 
-1. Copia `dist/SynapseBox-Windows-v1.0.0.zip` a tu PC con Windows (por ejemplo con `scp`), descomprímelo.
+1. Copia `dist/SynapseBox-Windows-v1.2.0.zip` a tu PC con Windows (por ejemplo con `scp`), descomprímelo.
 2. Doble clic en **`install.cmd`** (o en PowerShell: `powershell -ExecutionPolicy Bypass -File install.ps1`). Se instala para tu usuario en `%LOCALAPPDATA%\Programs\SynapseBox` (sin administrador), crea el acceso directo **SynapseBox** en el menú Inicio y añade `sbox` al PATH. Con `-Service` activa también la sincronización en segundo plano.
 3. Abre **SynapseBox** y escribe la dirección de tu servidor (`https://nube.ejemplo.com`, `192.168.1.20:3001` o un enlace de ngrok), usuario y contraseña. En una terminal nueva: `sbox help`.
 
@@ -62,6 +65,14 @@ sbox sessions ; sbox passwd ; sbox trash ; sbox search informe ; sbox update ins
 ```
 
 `sbox help` muestra todas las órdenes. Autocompletado en PowerShell: `sbox completion | Out-String | Invoke-Expression` (añádelo a tu `$PROFILE`).
+
+## Novedades 1.2.0
+
+- **Instalar el servidor en este equipo:** en la pantalla de inicio de sesión, apartado «¿No tienes un servidor?»: abre una ventana de PowerShell y ejecuta el instalador oficial de SynapseBox (`get.ps1`: instala git y Node.js con winget si faltan, descarga SynapseBox en `%USERPROFILE%\SynapseBox` y arranca el servidor con `npm start`). Déjala abierta: si la cierras, el servidor se detiene. Después, «Usar este equipo como servidor» rellena `http://localhost:3001`. También por terminal: `sbox install-server [-y] [--no-start]`.
+
+## Novedades 1.1.0
+
+- **Archivos de usuarios (solo administradores):** página nueva en la ventana (solo aparece si tu cuenta es admin) y comandos `sbox admin users | ls <usuario> [ruta] [-l] | get <usuario> <ruta> [-o destino] | rm <usuario> <ruta>… [-y]`. Permite ver, descargar y eliminar (a la papelera de ese usuario) los archivos y carpetas de cualquier cuenta; **no crea, modifica ni renombra**. Las carpetas no se descargan enteras.
 
 ## Sincronización
 

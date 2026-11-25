@@ -2,7 +2,7 @@
 //! Todo lo que hace la ventana también se puede hacer con sbox.exe. El trabajo de red va en hilos y avisa por un canal.
 use crate::api::{self, Api, Fail, LoginRes, R};
 use crate::config::{self, edit, Config, Status};
-use crate::{cli, ops, runner, update};
+use crate::{cli, ops, runner, serverinst, update};
 use eframe::egui::{self, Color32, RichText};
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -10,6 +10,7 @@ use std::sync::{mpsc, Arc};
 use std::time::{Duration, Instant};
 
 type Session = (String, bool, i64, String, String);
+type AdminUser = (String, bool, bool, i64, f64);
 
 enum Msg {
     Login(R<LoginRes>, String, String),
@@ -22,15 +23,22 @@ enum Msg {
     Info(bool, String),
     SyncDone,
     Service(bool),
+    IsAdmin(bool),
+    LocalServer(Option<String>),
+    AdminUsers(R<Vec<AdminUser>>),
+    AdminList(String, String, R<Vec<api::Entry>>),
+    AdminInfo(bool, String),
+    AdminDeleted(R<()>),
 }
 
 #[derive(PartialEq, Clone, Copy)]
-enum Page { Home, Sync, Updates, Account }
+enum Page { Home, Sync, Admin, Updates, Account }
 
 struct Gui {
     cfg: Config, cfg_t: Instant, status: Status, status_t: Instant, page: Page,
     tx: mpsc::Sender<Msg>, rx: mpsc::Receiver<Msg>, stop: Arc<AtomicBool>, logo: Option<egui::TextureHandle>,
     // inicio de sesión
+    inst_msg: String,
     srv: String, user: String, pass: String, pass2: String, code: String, registering: bool, ticket: Option<String>, login_msg: String, busy: bool, codes: Vec<String>,
     // inicio
     usage: Option<(i64, i64)>, usage_t: Option<Instant>, upl: Option<(bool, String)>, uploading: bool,
@@ -39,6 +47,9 @@ struct Gui {
     // actualizaciones
     checking: bool, check: Option<Result<update::Check, String>>, upd_log: Vec<String>, installing: bool, installed_ok: bool,
     // cuenta
+    // administración (solo cuentas admin)
+    is_admin: bool, adm_asked: bool, adm_loaded: bool, adm_busy: bool, adm_users: Vec<AdminUser>, adm_user: Option<String>, adm_path: String,
+    adm_items: Vec<api::Entry>, adm_filter: String, adm_msg: Option<(bool, String)>, adm_confirm: Option<(String, String, bool)>,
     sessions: Vec<Session>, acc_msg: Option<(bool, String)>, pw_cur: String, pw_new: String, pw_new2: String,
 }
 
@@ -131,12 +142,15 @@ impl Gui {
         // Con la ventana abierta sincroniza solo, salvo que ya lo haga el servicio en segundo plano.
         if !config::service_alive() { let s = stop.clone(); std::thread::spawn(move || runner::daemon(&s, false)); }
         Gui {
+            inst_msg: String::new(),
             srv: cfg.server.clone(), user: cfg.username.clone(), local_buf: cfg.local_path.clone(), remote_buf: cfg.remote_path.clone(),
             cfg, cfg_t: Instant::now(), status: Status::load(), status_t: Instant::now(), page: Page::Home, tx, rx, stop, logo: None,
             pass: String::new(), pass2: String::new(), code: String::new(), registering: false, ticket: None, login_msg: String::new(), busy: false, codes: vec![],
             usage: None, usage_t: None, upl: None, uploading: false,
             sync_msg: String::new(), svc_installed: false, syncing_now: false,
             checking: false, check: None, upd_log: vec![], installing: false, installed_ok: false,
+            is_admin: false, adm_asked: false, adm_loaded: false, adm_busy: false, adm_users: vec![], adm_user: None, adm_path: String::new(),
+            adm_items: vec![], adm_filter: String::new(), adm_msg: None, adm_confirm: None,
             sessions: vec![], acc_msg: None, pw_cur: String::new(), pw_new: String::new(), pw_new2: String::new(),
         }
     }
@@ -147,7 +161,7 @@ impl Gui {
     }
     fn api(&self) -> Api { Api::new(&self.cfg.server, &self.cfg.token) }
 
-    fn pump(&mut self) {
+    fn pump(&mut self, ctx: &egui::Context) {
         while let Ok(m) = self.rx.try_recv() {
             match m {
                 Msg::Login(res, srv, user) => {
@@ -183,9 +197,104 @@ impl Gui {
                 Msg::Sessions(r) => match r { Ok(v) => self.sessions = v, Err(e) => self.acc_msg = Some((false, e.to_string())) },
                 Msg::Info(ok, t) => self.acc_msg = Some((ok, t)),
                 Msg::SyncDone => { self.syncing_now = false; self.status = Status::load(); }
+                Msg::LocalServer(v) => match v {
+                    Some(v) => { self.srv = serverinst::LOCAL.into(); self.inst_msg = format!("SynapseBox v{} encontrado en este equipo. Crea tu cuenta (el primer usuario es administrador) o inicia sesión.", v); }
+                    None => self.inst_msg = "Todavía no responde en este equipo. Espera a que PowerShell termine de instalar y arrancar, y vuelve a pulsar.".into(),
+                },
+                Msg::IsAdmin(a) => { self.is_admin = a; if !a && self.page == Page::Admin { self.page = Page::Home; } }
+                Msg::AdminUsers(r) => { self.adm_busy = false; match r { Ok(v) => self.adm_users = v, Err(e) => self.adm_msg = Some((false, e.to_string())) } }
+                Msg::AdminList(u, p, r) => {
+                    if self.adm_user.as_deref() == Some(u.as_str()) && self.adm_path == p {
+                        self.adm_busy = false;
+                        match r { Ok(mut v) => { v.sort_by(|x, y| y.is_dir.cmp(&x.is_dir).then(x.name.to_lowercase().cmp(&y.name.to_lowercase()))); self.adm_items = v; } Err(e) => { self.adm_items.clear(); self.adm_msg = Some((false, e.to_string())); } }
+                    }
+                }
+                Msg::AdminInfo(ok, t) => self.adm_msg = Some((ok, t)),
+                Msg::AdminDeleted(r) => match r { Ok(()) => { self.adm_msg = Some((true, "Eliminado (está en la papelera de ese usuario)".into())); self.adm_load(ctx); } Err(e) => self.adm_msg = Some((false, e.to_string())) },
                 Msg::Service(on) => { self.svc_installed = cli::service_installed(); if on && !self.svc_installed { self.sync_msg = "No se pudo crear la tarea programada".into(); } }
             }
         }
+    }
+
+    // ---------- Archivos de usuarios (solo administradores) ----------
+    fn adm_load_users(&mut self, ctx: &egui::Context) { self.adm_busy = true; self.adm_msg = None; let a = self.api(); self.spawn(ctx, move || a.admin_users(), Msg::AdminUsers); }
+    fn adm_load(&mut self, ctx: &egui::Context) {
+        let (u, p) = (self.adm_user.clone().unwrap_or_default(), self.adm_path.clone());
+        self.adm_busy = true; self.adm_filter.clear(); let a = self.api();
+        self.spawn(ctx, move || { let r = a.admin_list(&u, &p); (u, p, r) }, |(u, p, r)| Msg::AdminList(u, p, r));
+    }
+    fn admin_ui(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
+        ui.heading("Archivos de usuarios");
+        ui.weak("Solo administradores: ver, descargar y eliminar. No se crea, modifica ni renombra nada.");
+        ui.add_space(8.0);
+        if !self.adm_loaded { self.adm_loaded = true; if self.adm_user.is_some() { self.adm_load(ctx); } else { self.adm_load_users(ctx); } }
+        if self.adm_busy { ui.horizontal(|ui| { ui.spinner(); ui.label("Cargando…"); }); }
+        match self.adm_user.clone() {
+            None => {
+                let mut open_user: Option<String> = None;
+                card(ui, "Usuarios", |ui| {
+                    if ui.button("Actualizar lista").clicked() { self.adm_load_users(ctx); }
+                    for (n, adm, susp, used, max) in &self.adm_users {
+                        ui.horizontal(|ui| {
+                            if ui.button(n).clicked() { open_user = Some(n.clone()); }
+                            let q = if *max > 0.0 { format!("{} de {}", fmt_bytes(*used), fmt_bytes((*max * 1048576.0) as i64)) } else { format!("{} (sin límite)", fmt_bytes(*used)) };
+                            ui.weak(q); if *adm { ui.weak("· admin"); } if *susp { ui.weak("· suspendido"); }
+                        });
+                    }
+                });
+                if let Some(u) = open_user { self.adm_user = Some(u); self.adm_path.clear(); self.adm_items.clear(); self.adm_msg = None; self.adm_load(ctx); }
+            }
+            Some(user) => {
+                let (mut go_back, mut go_up, mut enter, mut dl, mut view, mut del): (bool, bool, Option<String>, Option<api::Entry>, Option<api::Entry>, Option<api::Entry>) = (false, false, None, None, None, None);
+                ui.horizontal(|ui| {
+                    if ui.button("← Usuarios").clicked() { go_back = true; }
+                    if !self.adm_path.is_empty() && ui.button("↑ Subir").clicked() { go_up = true; }
+                    ui.label(RichText::new(format!("{} / {}", user, self.adm_path.replace('/', " / "))).strong());
+                });
+                ui.add(egui::TextEdit::singleline(&mut self.adm_filter).hint_text("Filtrar por nombre"));
+                ui.add_space(6.0);
+                let f = self.adm_filter.to_lowercase();
+                let items: Vec<api::Entry> = self.adm_items.iter().filter(|e| f.is_empty() || e.name.to_lowercase().contains(&f)).cloned().collect();
+                if items.is_empty() && !self.adm_busy { ui.weak(if self.adm_items.is_empty() { "Carpeta vacía." } else { "Sin resultados." }); }
+                for e in &items {
+                    ui.horizontal(|ui| {
+                        if e.is_dir { icon(ui, "folder", None); if ui.link(&e.name).clicked() { enter = Some(e.name.clone()); } }
+                        else { icon(ui, "dot-off", None); ui.label(&e.name); ui.weak(fmt_bytes(e.size)); }
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            if ui.small_button("Eliminar").clicked() { del = Some(e.clone()); }
+                            if !e.is_dir { if ui.small_button("Descargar").clicked() { dl = Some(e.clone()); } if ui.small_button("Ver").clicked() { view = Some(e.clone()); } }
+                        });
+                    });
+                }
+                if go_back { self.adm_user = None; self.adm_items.clear(); self.adm_msg = None; self.adm_load_users(ctx); }
+                if go_up { self.adm_path = ops::parent(&self.adm_path); self.adm_load(ctx); }
+                if let Some(n) = enter { self.adm_path = ops::join(&self.adm_path, &n); self.adm_load(ctx); }
+                if let Some(e) = dl {
+                    if let Some(dest) = rfd::FileDialog::new().set_title("Guardar archivo").set_file_name(&e.name).save_file() {
+                        let (a, u, p) = (self.api(), user.clone(), e.path.clone());
+                        self.spawn(ctx, move || a.admin_download(&u, &p, &dest), |r| match r { Ok(()) => Msg::AdminInfo(true, "Archivo guardado".into()), Err(e) => Msg::AdminInfo(false, e.to_string()) });
+                    }
+                }
+                if let Some(e) = view {
+                    let dir = std::env::temp_dir().join("SynapseBoxAdmin"); let _ = std::fs::remove_dir_all(&dir); let _ = std::fs::create_dir_all(&dir);
+                    let dest = dir.join(&e.name); let (a, u, p) = (self.api(), user.clone(), e.path.clone()); self.adm_msg = Some((true, "Abriendo…".into()));
+                    self.spawn(ctx, move || { a.admin_download(&u, &p, &dest)?; open(&dest.to_string_lossy()); Ok::<(), Fail>(()) }, |r| match r { Ok(()) => Msg::AdminInfo(true, "Abierto con la app predeterminada".into()), Err(e) => Msg::AdminInfo(false, e.to_string()) });
+                }
+                if let Some(e) = del { self.adm_confirm = Some((user.clone(), e.path.clone(), e.is_dir)); }
+            }
+        }
+        if let Some((u, p, dir)) = self.adm_confirm.clone() {
+            let mut close = false;
+            egui::Window::new("Eliminar").collapsible(false).resizable(false).anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]).show(ctx, |ui| {
+                ui.label(format!("«{}»{} de la cuenta de {}.", p, if dir { " y todo su contenido" } else { "" }, u)); ui.label("Irá a la papelera de ese usuario.");
+                ui.horizontal(|ui| {
+                    if ui.button("Eliminar").clicked() { let a = self.api(); let (u2, p2) = (u.clone(), p.clone()); self.spawn(ctx, move || a.admin_delete(&u2, &p2), Msg::AdminDeleted); close = true; }
+                    if ui.button("Cancelar").clicked() { close = true; }
+                });
+            });
+            if close { self.adm_confirm = None; }
+        }
+        if let Some((ok, t)) = &self.adm_msg { note(ui, if *ok { "ok" } else { "err" }, t); }
     }
 
     // ---------- Inicio de sesión ----------
@@ -213,6 +322,16 @@ impl Gui {
             if !self.login_msg.is_empty() { ui.add_space(6.0); ui.label(RichText::new(&self.login_msg).color(AMBER)); }
             ui.add_space(8.0);
             if ui.link(if self.registering { "Ya tengo cuenta" } else { "Crear una cuenta" }).clicked() { self.registering = !self.registering; self.ticket = None; self.login_msg.clear(); }
+            ui.add_space(14.0); ui.separator();
+            egui::CollapsingHeader::new("¿No tienes un servidor? Instalar SynapseBox en este equipo").show(ui, |ui| {
+                ui.label("Se abre una ventana de PowerShell y ejecuta el instalador oficial (instala git y Node.js si faltan, descarga SynapseBox en tu carpeta de usuario y arranca el servidor). Déjala abierta: si la cierras, el servidor se detiene.");
+                ui.add(egui::Label::new(RichText::new(serverinst::command(true)).monospace().size(11.0)).selectable(true));
+                ui.horizontal(|ui| {
+                    if ui.button("Abrir PowerShell e instalar").clicked() { self.inst_msg = match serverinst::launch() { Ok(()) => "PowerShell abierto. Cuando el servidor arranque, pulsa «Usar este equipo».".into(), Err(e) => e }; }
+                    if ui.button("Usar este equipo como servidor").clicked() { self.inst_msg = "Comprobando…".into(); self.spawn(ctx, || api::probe(serverinst::LOCAL), Msg::LocalServer); }
+                });
+                if !self.inst_msg.is_empty() { ui.label(RichText::new(&self.inst_msg).color(AMBER)); }
+            });
         });
     }
     fn submit_login(&mut self, ctx: &egui::Context) {
@@ -448,13 +567,14 @@ impl Gui {
     fn logout(&mut self, clear_server: bool) {
         let a = self.api(); std::thread::spawn(move || { let _ = a.logout(); });
         edit(|c| { c.clear_session(); c.sync_enabled = false; if clear_server { c.server.clear(); } });
+        self.is_admin = false; self.adm_asked = false; self.adm_loaded = false; self.adm_users.clear(); self.adm_user = None; self.adm_items.clear(); self.adm_msg = None;
         self.reload(); self.srv = self.cfg.server.clone(); self.ticket = None; self.sessions.clear(); self.acc_msg = None; self.usage = None; self.usage_t = None;
     }
 }
 
 impl eframe::App for Gui {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        self.pump();
+        self.pump(ctx);
         if self.logo.is_none() { if let Some(i) = load_icon() { self.logo = Some(ctx.load_texture("logo", egui::ColorImage::from_rgba_unmultiplied([i.width as usize, i.height as usize], &i.rgba), egui::TextureOptions::LINEAR)); } }
         if self.cfg_t.elapsed() > Duration::from_secs(2) { self.reload(); }
         if self.status_t.elapsed() > Duration::from_millis(700) { self.status = Status::load(); self.status_t = Instant::now(); }
@@ -468,14 +588,18 @@ impl eframe::App for Gui {
             return;
         }
         if !self.codes.is_empty() { egui::CentralPanel::default().show(ctx, |ui| self.codes_ui(ui)); return; }
+        if !self.adm_asked { self.adm_asked = true; let a = self.api(); self.spawn(ctx, move || a.is_admin(), Msg::IsAdmin); }
         egui::SidePanel::left("nav").exact_width(190.0).show(ctx, |ui| {
             ui.add_space(12.0);
             ui.horizontal(|ui| { if let Some(t) = &self.logo { ui.add(egui::Image::new(t).fit_to_exact_size(egui::vec2(28.0, 28.0))); } ui.label(RichText::new("SynapseBox").strong().size(18.0)); });
             ui.add_space(14.0);
-            for (p, ic, t) in [(Page::Home, "home", "Inicio"), (Page::Sync, "sync", "Sincronización"), (Page::Updates, "update", "Actualizaciones"), (Page::Account, "account", "Cuenta")] {
+            let mut nav = vec![(Page::Home, "home", "Inicio"), (Page::Sync, "sync", "Sincronización")];
+            if self.is_admin { nav.push((Page::Admin, "folder", "Archivos de usuarios")); }
+            nav.push((Page::Updates, "update", "Actualizaciones")); nav.push((Page::Account, "account", "Cuenta"));
+            for (p, ic, t) in nav {
                 ui.horizontal(|ui| {
                     icon(ui, ic, None);
-                    if ui.selectable_label(self.page == p, t).clicked() { self.page = p; if p == Page::Sync { self.svc_installed = cli::service_installed(); } }
+                    if ui.selectable_label(self.page == p, t).clicked() { self.page = p; if p == Page::Sync { self.svc_installed = cli::service_installed(); } if p == Page::Admin { self.adm_loaded = false; } }
                 });
                 ui.add_space(2.0);
             }
@@ -484,6 +608,7 @@ impl eframe::App for Gui {
             egui::ScrollArea::vertical().show(ui, |ui| match self.page {
                 Page::Home => self.home_ui(ui, ctx),
                 Page::Sync => self.sync_ui(ui, ctx),
+                Page::Admin => self.admin_ui(ui, ctx),
                 Page::Updates => self.updates_ui(ui, ctx),
                 Page::Account => self.account_ui(ui, ctx),
             });

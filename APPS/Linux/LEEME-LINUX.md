@@ -12,8 +12,8 @@ Cliente de escritorio (GTK 4, escrito en Rust) para tu servidor SynapseBox 2.23 
    - Si tu `cargo` es anterior a 1.80, instala Rust desde <https://rustup.rs>.
 2. Descomprime y ejecuta el instalador:
    ```bash
-   tar -xzf SynapseBox-v1.1.1.tar.gz
-   cd synapsebox-linux-1.1.1
+   tar -xzf SynapseBox-v1.3.0.tar.gz
+   cd synapsebox-linux-1.3.0
    ./install.sh              # para tu usuario (~/.local), sin sudo
    ```
    La primera compilación descarga las librerías de Rust y tarda unos minutos. Para todos los usuarios: `sudo ./install.sh --prefix /usr/local`.
@@ -57,6 +57,14 @@ La app mira la carpeta **`APPS/Linux/dist`** de la rama `main` de `OctavioproYT4
 ## Desinstalar
 
 `./uninstall.sh` (añade `--purge` para borrar también ajustes y estado; tus archivos no se tocan).
+
+## Novedades 1.3.0
+
+- **Instalar el servidor en este equipo:** en la pantalla de inicio de sesión, apartado «¿No tienes un servidor?»: abre una terminal y ejecuta el instalador oficial de SynapseBox (`get.sh`: instala git y Node.js si faltan, pide tu contraseña de administrador en esa terminal y arranca el servidor). Después, «Usar este equipo como servidor» rellena `http://localhost:3001`. También por terminal: `sbox install-server [-y] [--no-start]`.
+
+## Novedades 1.2.0
+
+- **Archivos de usuarios (solo administradores):** página nueva en la ventana (la opción solo aparece si tu cuenta es admin) y comandos `sbox admin users | ls <usuario> [ruta] [-l] | get <usuario> <ruta> [-o destino] | rm <usuario> <ruta>… [-y]`. Permite ver, descargar y eliminar (a la papelera de ese usuario) los archivos y carpetas de cualquier cuenta; **no crea, modifica ni renombra**. Usa `/api/admin/files`, `/api/admin/file` y `/api/admin/delete-file`, que el servidor solo permite a administradores. Las carpetas no se descargan enteras.
 
 ## Novedades 1.1.1
 

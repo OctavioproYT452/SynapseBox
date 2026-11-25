@@ -188,6 +188,32 @@ impl Api {
         Ok(bad)
     }
 
+    // ---------- Administración (solo cuentas de administrador; el servidor lo vuelve a comprobar en cada llamada) ----------
+    pub fn is_admin(&self) -> bool { self.get("api/session", &[]).map(|j| j["admin"].as_bool().unwrap_or(false)).unwrap_or(false) }
+    /// Usuarios: (nombre, es_admin, suspendido, bytes usados, cuota en MB; ≤0 = sin límite).
+    pub fn admin_users(&self) -> R<Vec<(String, bool, bool, i64, f64)>> {
+        let j = self.get("api/admin/users", &[])?;
+        Ok(j["users"].as_array().cloned().unwrap_or_default().iter().map(|o| (
+            o["username"].as_str().unwrap_or("").to_string(), o["is_admin"].as_i64().unwrap_or(0) == 1, o["suspended"].as_i64().unwrap_or(0) == 1,
+            o["used_bytes"].as_i64().unwrap_or(0), o["max_space_mb"].as_f64().unwrap_or(-1.0))).collect())
+    }
+    /// Contenido de una carpeta de otro usuario (solo lectura). `path` vacío = raíz.
+    pub fn admin_list(&self, user: &str, path: &str) -> R<Vec<Entry>> {
+        let j = self.get("api/admin/files", &[("user", user), ("path", path)])?;
+        let mut v = Self::entries(&j);
+        for e in v.iter_mut() { e.path = crate::ops::join(path, &e.name); }
+        Ok(v)
+    }
+    /// Descarga un archivo de otro usuario a `dest`.
+    pub fn admin_download(&self, user: &str, path: &str, dest: &Path) -> R<()> {
+        let mut r = self.send(self.rb(Method::GET, "api/admin/file", true).query(&[("user", user), ("path", path), ("dl", "1")]), true)?;
+        let mut f = fs::File::create(dest)?;
+        std::io::copy(&mut r, &mut f)?;
+        Ok(())
+    }
+    /// Borra un archivo o carpeta de otro usuario (va a la papelera de ese usuario).
+    pub fn admin_delete(&self, user: &str, path: &str) -> R<()> { self.post("api/admin/delete-file", &json!({"user": user, "path": path}), true).map(|_| ()) }
+
     /// Descarga a `dest`. Con `resume` y un servidor con `download-range`, continúa un archivo parcial existente.
     pub fn download(&self, remote: &str, dest: &Path, resume: bool) -> R<()> {
         let have = if resume && dest.exists() && self.has("download-range") { fs::metadata(dest)?.len() } else { 0 };

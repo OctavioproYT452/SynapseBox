@@ -1,6 +1,6 @@
 //! SynapseBox para Linux: cliente de escritorio (GTK4) con sincronización de carpetas.
 //! Sin argumentos abre la interfaz. Como «sbox» (enlace a este programa) o con una orden (p. ej. «synapsebox-linux ls») es la línea de órdenes. Opciones: --daemon, --sync-once, --check-update, --update, --version.
-mod api; mod cli; mod config; mod icons; mod ops; mod runner; mod sync; mod timefmt; mod ui; mod update;
+mod api; mod cli; mod config; mod icons; mod ops; mod runner; mod serverinst; mod sync; mod timefmt; mod ui; mod update;
 use std::sync::atomic::AtomicBool;
 
 fn help() {

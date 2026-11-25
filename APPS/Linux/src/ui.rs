@@ -2,7 +2,7 @@
 use crate::api::{self, Api};
 use crate::config::{self, Config, Status, VERSION};
 use crate::icons::{self, IconText};
-use crate::{ops, runner, update};
+use crate::{ops, runner, serverinst, update};
 use gtk4 as gtk;
 use gtk::glib;
 use gtk::gio::prelude::FileExt;
@@ -157,6 +157,15 @@ fn build_login(root: &gtk::Stack, codes_lbl: &gtk::Label) -> gtk::Widget {
     { let p = probe_server.clone(); check.connect_clicked(move |_| p()); }
     if cfg.server.is_empty() == false { let p = probe_server.clone(); glib::idle_add_local_once(move || p()); }
 
+    // ¿no hay servidor? Instalarlo en este mismo equipo con el instalador oficial, en una terminal de verdad
+    let ic = card(Some("¿No tienes un servidor?")); body.append(&ic);
+    ic.append(&dim("Instala SynapseBox en este equipo: se abre una terminal y ejecuta el instalador oficial (instala git y Node.js si faltan, te pide la contraseña de administrador en esa terminal y arranca el servidor). Déjala abierta: si la cierras, el servidor se detiene."));
+    let cmd = lbl(&serverinst::command(true)); cmd.set_selectable(true); cmd.add_css_class("monospace"); ic.append(&cmd);
+    let imsg = dim(""); let run = btn("Abrir terminal e instalar", ""); let use_local = btn("Usar este equipo como servidor", "flat");
+    ic.append(&run); ic.append(&use_local); ic.append(&imsg);
+    { let m = imsg.clone(); run.connect_clicked(move |_| match serverinst::launch_in_terminal() { Ok(t) => m.set_text(&format!("Terminal abierta ({}). Cuando el servidor arranque, pulsa «Usar este equipo como servidor».", t)), Err(e) => m.set_text(&e) }); }
+    { let (sv, p) = (server.clone(), probe_server.clone()); use_local.connect_clicked(move |_| { sv.set_text(serverinst::LOCAL); p(); }); }
+
     // alternar iniciar sesión / crear cuenta
     { let (reg, p2, g, s, t, cd, tk, m) = (registering.clone(), pass2.clone(), go.clone(), switch.clone(), title.clone(), code.clone(), ticket.clone(), msg.clone());
       switch.connect_clicked(move |_| {
@@ -217,16 +226,27 @@ fn build_main(win: &gtk::ApplicationWindow, root: &gtk::Stack, refreshers: &Rc<R
     let pages: Vec<(&str, &str, &str, gtk::Widget)> = vec![
         ("home", "home", "Inicio", build_home(win, refreshers)),
         ("sync", "sync", "Sincronización", build_sync(win, refreshers)),
+        ("admin", "folder", "Archivos de usuarios", build_admin(win, refreshers)),
         ("updates", "update", "Actualizaciones", build_updates(refreshers)),
         ("account", "account", "Cuenta", build_account(root, refreshers)),
     ];
+    let mut admin_btn: Option<gtk::Button> = None;
     for (name, icon, title, w) in pages {
         inner.add_named(&w, Some(name));
         let b = gtk::Button::new(); b.add_css_class("flat"); b.add_css_class("nav");
         let it = IconText::new(icon, title); it.root.set_halign(gtk::Align::Start); b.set_child(Some(&it.root));
         let (inner2, navs2, n) = (inner.clone(), navs.clone(), name.to_string());
         b.connect_clicked(move |_| { inner2.set_visible_child_name(&n); for (k, bt) in navs2.borrow().iter() { if *k == n { bt.add_css_class("active") } else { bt.remove_css_class("active") } } });
+        if name == "admin" { b.set_visible(false); admin_btn = Some(b.clone()); } // solo se muestra a administradores
         side.append(&b); navs.borrow_mut().push((name.to_string(), b));
+    }
+    if let Some(ab) = admin_btn { // pregunta al servidor si esta cuenta es admin cada vez que cambia la sesión
+        let last = Rc::new(RefCell::new(String::from("?")));
+        refreshers.borrow_mut().push(Box::new(move || {
+            let c = Config::load(); if *last.borrow() == c.token { return } *last.borrow_mut() = c.token.clone();
+            ab.set_visible(false); if c.token.is_empty() { return }
+            let ab2 = ab.clone(); bg(move || Api::new(&c.server, &c.token).is_admin(), move |a| ab2.set_visible(a));
+        }));
     }
     if let Some((_, b)) = navs.borrow().first() { b.add_css_class("active"); }
     let ver = dim(&format!("v{}", VERSION)); ver.set_vexpand(true); ver.set_valign(gtk::Align::End); ver.set_margin_start(10); side.append(&ver);
@@ -474,6 +494,135 @@ fn build_updates(refreshers: &Rc<RefCell<Vec<Box<dyn Fn()>>>>) -> gtk::Widget {
 }
 
 // ---------- Cuenta ----------
+// ---------- Archivos de usuarios (solo administradores): ver, descargar y eliminar; no crea ni modifica ----------
+struct AdmSt { user: Option<String>, path: String, items: Vec<api::Entry> }
+#[derive(Clone)]
+struct Adm { st: Rc<RefCell<AdmSt>>, win: gtk::ApplicationWindow, list: gtk::Box, title: gtk::Label, msg: gtk::Label, filter: gtk::Entry, back: gtk::Button, up: gtk::Button, keep: Rc<RefCell<Vec<gtk::FileChooserNative>>> }
+impl Adm {
+    fn clear(&self) { while let Some(c) = self.list.first_child() { self.list.remove(&c); } }
+    fn creds() -> (String, String) { let c = Config::load(); (c.server, c.token) }
+    fn users(&self) {
+        { let mut s = self.st.borrow_mut(); s.user = None; s.path.clear(); s.items.clear(); }
+        self.title.set_label("Elige un usuario"); self.back.set_visible(false); self.up.set_visible(false); self.filter.set_visible(false);
+        self.msg.set_label("Cargando…"); self.clear();
+        let (srv, tok) = Self::creds(); let me = self.clone();
+        bg(move || Api::new(&srv, &tok).admin_users(), move |r| match r {
+            Ok(us) => {
+                me.msg.set_label(""); me.clear();
+                for (n, adm, susp, used, max) in us {
+                    let q = if max > 0.0 { format!("{} de {}", fmt_bytes(used), fmt_bytes((max * 1048576.0) as i64)) } else { format!("{} (sin límite)", fmt_bytes(used)) };
+                    let sub = format!("{}{}{}", q, if adm { " · admin" } else { "" }, if susp { " · suspendido" } else { "" });
+                    let open_b = btn("Abrir", ""); let (me2, n2) = (me.clone(), n.clone());
+                    open_b.connect_clicked(move |_| { { let mut s = me2.st.borrow_mut(); s.user = Some(n2.clone()); s.path.clear(); } me2.load(); });
+                    me.list.append(&row(&n, &sub, &open_b));
+                }
+            }
+            Err(e) => me.msg.set_label(&e.to_string()),
+        });
+    }
+    fn load(&self) {
+        let (user, path) = { let s = self.st.borrow(); (s.user.clone().unwrap_or_default(), s.path.clone()) };
+        self.title.set_label(&format!("{} / {}", user, path.replace('/', " / ")));
+        self.back.set_visible(true); self.up.set_visible(!path.is_empty()); self.filter.set_visible(true); self.filter.set_text("");
+        self.msg.set_label("Cargando…"); self.clear();
+        let (srv, tok) = Self::creds(); let me = self.clone();
+        bg(move || { let r = Api::new(&srv, &tok).admin_list(&user, &path); (user, path, r) }, move |(u, p, r)| {
+            { let s = me.st.borrow(); if s.user.as_deref() != Some(u.as_str()) || s.path != p { return } }
+            match r {
+                Ok(mut v) => { v.sort_by(|x, y| y.is_dir.cmp(&x.is_dir).then(x.name.to_lowercase().cmp(&y.name.to_lowercase()))); me.st.borrow_mut().items = v; me.msg.set_label(""); me.render(); }
+                Err(e) => { me.st.borrow_mut().items.clear(); me.msg.set_label(&e.to_string()); me.render(); }
+            }
+        });
+    }
+    fn render(&self) {
+        self.clear();
+        let f = self.filter.text().to_lowercase();
+        let items: Vec<api::Entry> = self.st.borrow().items.iter().filter(|e| f.is_empty() || e.name.to_lowercase().contains(&f)).cloned().collect();
+        if items.is_empty() { if self.msg.label().is_empty() { self.msg.set_label(if self.st.borrow().items.is_empty() { "Carpeta vacía." } else { "Sin resultados." }); } return }
+        for e in items {
+            let r = hbox(8); r.set_margin_top(2); r.set_margin_bottom(2);
+            let name = lbl(&e.name); name.set_hexpand(true); r.append(&name);
+            if e.is_dir {
+                let o = btn("Abrir", "flat"); let (me, n) = (self.clone(), e.name.clone());
+                o.connect_clicked(move |_| { { let mut s = me.st.borrow_mut(); s.path = ops::join(&s.path, &n); } me.load(); });
+                r.append(&o);
+            } else {
+                r.append(&dim(&fmt_bytes(e.size)));
+                let (v, d) = (btn("Ver", "flat"), btn("Descargar", "flat"));
+                { let (me, e2) = (self.clone(), e.clone()); v.connect_clicked(move |_| me.view(&e2)); }
+                { let (me, e2) = (self.clone(), e.clone()); d.connect_clicked(move |_| me.save(&e2)); }
+                r.append(&v); r.append(&d);
+            }
+            let x = btn("Eliminar", "flat"); { let (me, e2) = (self.clone(), e.clone()); x.connect_clicked(move |_| me.confirm_delete(&e2)); } r.append(&x);
+            self.list.append(&r);
+        }
+    }
+    fn user(&self) -> String { self.st.borrow().user.clone().unwrap_or_default() }
+    fn view(&self, e: &api::Entry) {
+        let dir = std::env::temp_dir().join("synapsebox-admin"); let _ = std::fs::remove_dir_all(&dir); let _ = std::fs::create_dir_all(&dir);
+        let dest = dir.join(&e.name); let (srv, tok, u, p) = { let (s, t) = Self::creds(); (s, t, self.user(), e.path.clone()) };
+        self.msg.set_label("Abriendo…"); let me = self.clone();
+        bg(move || Api::new(&srv, &tok).admin_download(&u, &p, &dest).map(|_| dest), move |r| match r {
+            Ok(d) => { me.msg.set_label(""); open(&d.to_string_lossy()); }
+            Err(e) => me.msg.set_label(&e.to_string()),
+        });
+    }
+    fn save(&self, e: &api::Entry) {
+        #[allow(deprecated)]
+        let d = gtk::FileChooserNative::new(Some("Guardar archivo"), Some(&self.win), gtk::FileChooserAction::Save, Some("Guardar"), Some("Cancelar"));
+        #[allow(deprecated)]
+        d.set_current_name(&e.name);
+        let (me, p) = (self.clone(), e.path.clone());
+        #[allow(deprecated)]
+        d.connect_response(move |d, r| {
+            if r != gtk::ResponseType::Accept { return }
+            let Some(dest) = d.file().and_then(|f| f.path()) else { return };
+            let (srv, tok) = Self::creds(); let (u, p2, me2) = (me.user(), p.clone(), me.clone());
+            me.msg.set_label("Descargando…");
+            bg(move || Api::new(&srv, &tok).admin_download(&u, &p2, &dest), move |r| match r { Ok(()) => me2.msg.set_label("Archivo guardado"), Err(e) => me2.msg.set_label(&e.to_string()) });
+        });
+        #[allow(deprecated)]
+        d.show();
+        self.keep.borrow_mut().push(d);
+    }
+    fn confirm_delete(&self, e: &api::Entry) {
+        let u = self.user();
+        #[allow(deprecated)]
+        let d = gtk::MessageDialog::builder().transient_for(&self.win).modal(true).message_type(gtk::MessageType::Question).buttons(gtk::ButtonsType::None)
+            .text(format!("¿Eliminar «{}»?", e.name)).secondary_text(format!("{}De la cuenta de {}. Irá a la papelera de ese usuario.", if e.is_dir { "Se eliminará también todo su contenido. " } else { "" }, u)).build();
+        #[allow(deprecated)]
+        { d.add_button("Cancelar", gtk::ResponseType::Cancel); d.add_button("Eliminar", gtk::ResponseType::Accept); }
+        let (me, p) = (self.clone(), e.path.clone());
+        #[allow(deprecated)]
+        d.connect_response(move |d, r| {
+            d.close();
+            if r != gtk::ResponseType::Accept { return }
+            let (srv, tok) = Self::creds(); let (u2, p2, me2) = (me.user(), p.clone(), me.clone());
+            bg(move || Api::new(&srv, &tok).admin_delete(&u2, &p2), move |r| match r { Ok(()) => me2.load(), Err(e) => me2.msg.set_label(&e.to_string()) });
+        });
+        d.present();
+    }
+}
+
+fn build_admin(win: &gtk::ApplicationWindow, refreshers: &Rc<RefCell<Vec<Box<dyn Fn()>>>>) -> gtk::Widget {
+    let (h, _, _) = hero("Archivos de usuarios", "Solo administradores: ver, descargar y eliminar. No se crea ni modifica nada.");
+    let body = vbox(8);
+    let bar = hbox(8); let back = btn("← Usuarios", "flat"); let up = btn("↑ Subir", "flat"); let title = lbl("Elige un usuario"); title.set_hexpand(true); title.add_css_class("card-title");
+    bar.append(&back); bar.append(&up); bar.append(&title); body.append(&bar);
+    let filter = gtk::Entry::builder().placeholder_text("Filtrar por nombre").build(); body.append(&filter);
+    let msg = dim(""); body.append(&msg);
+    let list = vbox(2); let c = card(None); c.append(&list); body.append(&c);
+    let a = Adm { st: Rc::new(RefCell::new(AdmSt { user: None, path: String::new(), items: vec![] })), win: win.clone(), list, title, msg, filter: filter.clone(), back: back.clone(), up: up.clone(), keep: Rc::new(RefCell::new(Vec::new())) };
+    { let a2 = a.clone(); back.connect_clicked(move |_| a2.users()); }
+    { let a2 = a.clone(); up.connect_clicked(move |_| { { let mut s = a2.st.borrow_mut(); s.path = ops::parent(&s.path); } a2.load(); }); }
+    { let a2 = a.clone(); filter.connect_changed(move |_| a2.render()); }
+    a.users();
+    // al volver a abrir la página tras un cambio de cuenta, se recarga la lista de usuarios
+    let last = Rc::new(RefCell::new(String::new()));
+    refreshers.borrow_mut().push(Box::new(move || { let t = Config::load().token; if *last.borrow() != t { *last.borrow_mut() = t.clone(); if !t.is_empty() { a.users(); } } }));
+    page(&h, &body)
+}
+
 fn build_account(root: &gtk::Stack, refreshers: &Rc<RefCell<Vec<Box<dyn Fn()>>>>) -> gtk::Widget {
     let (h, _, _) = hero("Cuenta", "");
     let body = vbox(0);
