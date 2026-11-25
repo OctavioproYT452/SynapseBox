@@ -13,8 +13,8 @@ const { space, relOf, moved, removed } = require("../services/collab");
 const trash = require("../services/trash");
 const ver = require("../version");
 
-const API_LEVEL = 3; // sube cuando se añade algo que los clientes puedan necesitar detectar
-const FEATURES = ["bearer", "sync-tree", "sync-since", "sync-file", "resumable-upload", "sync-move", "sync-delete-batch", "sync-hash", "download-range", "client-update"];
+const API_LEVEL = 4; // sube cuando se añade algo que los clientes puedan necesitar detectar
+const FEATURES = ["bearer", "sync-tree", "sync-since", "sync-file", "resumable-upload", "sync-move", "sync-delete-batch", "sync-hash", "download-range", "client-update", "by-type", "empty-folders"];
 const PLATFORMS = ["android", "windows", "linux", "macos"];
 
 // ---------- Información para clientes ----------

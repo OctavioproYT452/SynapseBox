@@ -66,7 +66,7 @@ app.get(["/", "/index.html"], (req, res, next) => req.user ? res.redirect("/pane
 app.get(["/panel.html", "/themes.html"], (req, res, next) => req.user ? next() : res.redirect("/"));
 app.use("/admin", (req, res, next) => req.user?.is_admin ? next() : res.redirect("/"));
 app.use(plugins.html); // inyecta los plugins activos en las páginas HTML
-app.get("/api/health", (req, res) => res.json({ ok: true, app: "SynapseBox", version: ver.info().current })); // las apps lo usan para reconocer el servidor al buscarlo en la red local; // para comprobar desde un proxy, PM2 o un monitor que el servidor responde
+app.get("/api/health", (req, res) => res.json({ ok: true, app: "SynapseBox", version: ver.info().current, uptime: Math.round(process.uptime()), time: Date.now() })); // las apps lo usan para reconocer el servidor al buscarlo en la red local; // para comprobar desde un proxy, PM2 o un monitor que el servidor responde
 app.use(express.static(PUBLIC, { setHeaders: (res, file) => { if (file.includes(path.sep + "vendor" + path.sep)) res.set("Cache-Control", "public, max-age=604800"); } })); // /vendor casi nunca cambia: caché de 7 días
 app.use((err, req, res, next) => { console.error("Error en " + req.method + " " + req.path + ":", err?.message || err); if (res.headersSent) return next(err); res.status(500).json({ error: "Error interno" }); });
 

@@ -71,7 +71,7 @@ router.get("/api/admin/files", needAdmin, wrap(async (req, res) => {
   const dir = safe(base(target(req)), req.query.path);
   const es = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
   const items = [];
-  for (const e of es) { const s = await fsp.stat(path.join(dir, e.name)).catch(() => null); if (s) items.push({ name: e.name, isDir: s.isDirectory(), size: s.isDirectory() ? 0 : s.size }); }
+  for (const e of es) { const s = await fsp.stat(path.join(dir, e.name)).catch(() => null); if (s) items.push({ name: e.name, isDir: s.isDirectory(), size: s.isDirectory() ? 0 : s.size, mtime: s.mtimeMs }); }
   res.json({ items });
 }));
 router.get("/api/admin/file", needAdmin, wrap(async (req, res) => serve(res, safe(base(target(req)), req.query.path), req.query.dl)));
@@ -80,6 +80,32 @@ router.post("/api/admin/delete-file", needAdmin, wrap(async (req, res) => {
   if (f === base(u)) throw Error("Ruta inválida");
   await require("../services/trash").put(u, f, req.user.username + " (admin)"); removed(u.id, relOf(u, f)); await usage(u, true);
   res.json({ success: true });
+}));
+// 2.26.1: gestión completa de los archivos de un usuario (la usa el gestor de la app de Android). Quedan en el registro de actividad (si está activado) como el resto de acciones de administración.
+const fs = require("fs"), crypto = require("crypto");
+const { nm } = require("../lib/paths"), { TMP } = require("../config"), { uniq, move } = require("../lib/storage");
+router.post("/api/admin/mkdir", needAdmin, wrap(async (req, res) => {
+  const u = target(req), d = safe(safe(base(u), req.body.path), nm(req.body.name));
+  await fsp.mkdir(d); res.json({ success: true });
+}));
+router.post("/api/admin/rename", needAdmin, wrap(async (req, res) => {
+  const u = target(req), f = safe(base(u), req.body.path);
+  if (f === base(u)) throw Error("Ruta inválida");
+  const to = path.join(path.dirname(f), nm(req.body.name));
+  if (await fsp.access(to).then(() => 1, () => 0)) throw Error("Ya existe un elemento con ese nombre");
+  await fsp.rename(f, to); res.json({ success: true });
+}));
+router.put("/api/admin/upload", needAdmin, wrap(async (req, res) => {
+  const u = target(req), rel = String(req.query.path || "");
+  if (!rel || rel.endsWith("/")) throw Error("Ruta no válida");
+  const dir = safe(base(u), path.dirname(rel) === "." ? "" : path.dirname(rel)), name = nm(path.basename(rel));
+  await fsp.mkdir(dir, { recursive: true }); await fsp.mkdir(TMP, { recursive: true });
+  const tmp = path.join(TMP, "adm-" + crypto.randomBytes(8).toString("hex"));
+  try {
+    await new Promise((ok, no) => { const ws = fs.createWriteStream(tmp); req.pipe(ws); ws.on("finish", ok); ws.on("error", no); req.on("error", no); req.on("aborted", () => no(Error("Subida cancelada"))); });
+    const final = await uniq(dir, name); await move(tmp, path.join(dir, final)); await usage(u, true);
+    res.json({ success: true, name: final });
+  } finally { await fsp.rm(tmp, { force: true }).catch(() => {}); }
 }));
 router.get("/api/admin/settings", needAdmin, (req, res) => res.json({ allow_registration: setting("allow_registration") === "1", default_quota_mb: Number(setting("default_quota_mb")), announcement: setting("announcement") || "", trash: require("../services/trash").config() }));
 router.post("/api/admin/settings", needAdmin, wrap(async (req, res) => {

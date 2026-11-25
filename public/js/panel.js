@@ -28,7 +28,7 @@ async function load(){
 function gate(){ // muestra solo lo que el rol permite (el servidor lo vuelve a comprobar)
   const vis=(s,v)=>$$(s).forEach(x=>x.hidden=!v);
   vis('[data-a=newFile],[data-a=newDir]',can('create'));$('#up').parentElement.hidden=$('#upd').parentElement.hidden=!can('create');
-  vis('[data-a=favview],[data-a=recent]',!cx);vis('[data-b=cp]',can('create'));vis('[data-b=cz]',can('create'));vis('[data-b=mv]',can('write'));vis('[data-b=del]',can('delete'));
+  vis('[data-a=favview],[data-a=recent],[data-a=bytype],[data-a=emptyf]',!cx);vis('[data-b=cp]',can('create'));vis('[data-b=cz]',can('create'));vis('[data-b=mv]',can('write'));vis('[data-b=del]',can('delete'));
   $('#filter').placeholder=cx?'Filtrar esta carpeta…':'Filtrar… (Enter = buscar en todo)'}
 function render(){
   const parts=cwd?cwd.split('/'):[];
@@ -149,7 +149,7 @@ let dc=0;addEventListener('dragenter',e=>{e.preventDefault();dc++;$('#drop').cla
 addEventListener('dragover',e=>e.preventDefault());addEventListener('drop',e=>{e.preventDefault();dc=0;$('#drop').classList.remove('on');upload(e.dataTransfer.files)});
 
 document.addEventListener('click',e=>{const a=e.target.closest('[data-a]')?.dataset.a;if(!a)return;
-  ({clean:cleanDlg,stats:statsDlg,trash:trashDlg,shares,account,newDir,newFile,favview:()=>showList('/api/favs','Favoritos'),recent:()=>showList('/api/recent','Recientes'),theme:appearance,select:()=>{selMode=!selMode;sel.clear();render()},view:()=>{list=!list;localStorage.fcList=list?'1':'0';render()}})[a]()});
+  ({clean:cleanDlg,stats:statsDlg,trash:trashDlg,shares,account,newDir,newFile,favview:()=>showList('/api/favs','Favoritos'),recent:()=>showList('/api/recent','Recientes'),bytype:bytypeDlg,emptyf:()=>showList('/api/empty-folders','Carpetas vacías'),theme:appearance,select:()=>{selMode=!selMode;sel.clear();render()},view:()=>{list=!list;localStorage.fcList=list?'1':'0';render()}})[a]()});
 api('/api/session').then(s=>{if(!s.logged)return location.href='/';me=s;$('#me').textContent=s.user;userUI();$('#adminLink').hidden=!s.admin;if(s.ai)aiInit();load();loadCollabs();updateNotice(s);
   if(s.announcement&&localStorage.fcAnn!==s.announcement){const a=$('#ann');a.hidden=false;a.innerHTML=`${ic('info')}<span class="grow">${esc(s.announcement)}</span><button class="more" aria-label="Cerrar">${ic('x')}</button>`;$('button',a).onclick=()=>{localStorage.fcAnn=s.announcement;a.hidden=true}}});
 
@@ -166,6 +166,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-b]')?.data
 addEventListener('keydown',e=>{if(/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)||document.querySelector('dialog[open]'))return;
   if(e.key==='/'){e.preventDefault();$('#filter').focus()}if(e.key==='Escape'&&selMode){selMode=false;sel.clear();render()}
   if(selMode&&e.key==='Delete')bulk('del');if(selMode&&e.ctrlKey&&e.key==='a'){e.preventDefault();items.forEach(i=>sel.add(i.name));render()}});
+function bytypeDlg(){const o={images:'Imágenes',video:'Vídeos',audio:'Audio',docs:'Documentos',archives:'Comprimidos'},k=prompt('Tipo: '+Object.keys(o).join(', '),'images');if(k&&o[k.trim()])showList('/api/by-type?type='+k.trim(),o[k.trim()])}
 async function showList(url,title){try{const d=await api(url);items=d.items;searching=true;viewTitle=title;selMode=false;sel.clear();$('#filter').value='';render()}catch(e){toast(e.message,1)}}
 
 async function renameUser(d){const n=await ask('Cambiar nombre de usuario','Nuevo nombre (3-32: letras, números, _ . -)',me.user);if(!n||n===me.user)return;

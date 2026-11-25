@@ -22,6 +22,10 @@ Necesita un servidor SynapseBox **2.24.1 o superior** (trae la API de sincroniza
 - **Acceso a todos los archivos:** Android 11+ → permiso «Acceso a todos los archivos»; Android 7–10 → permiso de almacenamiento. Sin él no se puede sincronizar una carpeta elegida libremente.
 - **Seguridad:** el token se guarda cifrado con el Android Keystore (AES-GCM); admite 2FA; avisa si usas `http://`.
 
+## Novedades 1.7.1
+
+- **Arreglo:** la notificación de sincronización se quedaba en el archivo anterior (se descartaban las actualizaciones que llegaban a menos de 0,4 s de la anterior y no se reenviaban). Ahora se refresca **en tiempo real**: cada archivo nuevo aparece al instante y la notificación se vuelve a publicar cada 0,5 s. Además muestra el **porcentaje del archivo** que se está subiendo (subidas por trozos) o descargando, junto a la barra de progreso global.
+
 ## Novedades 1.7.0
 
 - **Archivos de usuarios (solo administradores):** nueva sección en Inicio → *Administración*. Lista los usuarios (espacio usado, admin, suspendido); al pulsar uno se navega por sus carpetas y archivos, con filtro por nombre. Pulsar (o mantener pulsado) un elemento permite **Ver** (se abre con otra app), **Descargar** (eliminar y descargar guardan donde elijas) y **Eliminar** (va a la papelera de ese usuario). **No** crea, modifica ni renombra nada. Usa `/api/admin/files`, `/api/admin/file` y `/api/admin/delete-file`, que el servidor solo permite a administradores; la opción se oculta a cuentas normales. Las carpetas no se pueden descargar enteras.

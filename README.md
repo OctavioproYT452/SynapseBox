@@ -11,7 +11,9 @@ Sube, organiza, edita y comparte archivos desde cualquier dispositivo, con usuar
 
 </div>
 
-> **Versión 2.25.1.** Qué ha cambiado en esta versión: consulta [RELEASE.md](RELEASE.md).
+> **Versión 2.26.0.** Qué ha cambiado en esta versión: consulta [RELEASE.md](RELEASE.md).
+>
+> **Apps:** [Android](#app-de-android) · [Windows](#app-de-windows-escritorio) · [Linux](#app-de-linux-escritorio) — sincronizan una carpeta con tu SynapseBox; las de escritorio traen además el comando `sbox` para la terminal.
 
 ---
 
@@ -31,13 +33,16 @@ Sube, organiza, edita y comparte archivos desde cualquier dispositivo, con usuar
 10. [Bot de Discord (opcional)](#bot-de-discord-opcional)
 11. [Seguridad](#seguridad)
 12. [Estructura del proyecto](#estructura-del-proyecto)
-13. [API](#api)
-14. [Despliegue en producción](#despliegue-en-producción)
-15. [Copias de seguridad](#copias-de-seguridad)
-16. [Migrar desde la versión 1](#migrar-desde-la-versión-1)
-17. [Solución de problemas](#solución-de-problemas)
-18. [Créditos](#créditos)
-19. [Licencia](#licencia)
+13. [Apps nativas: Android, Windows y Linux](#apps-android-windows-linux)
+    - [App de Android](#app-de-android) · [App de Windows](#app-de-windows-escritorio) · [App de Linux](#app-de-linux-escritorio)
+    - Todas: [sincronización de carpetas](#apps-android-windows-linux), [terminal `sbox`](#app-de-linux-escritorio) y [API para apps](#api-para-apps-nativas-2250)
+14. [API](#api)
+15. [Despliegue en producción](#despliegue-en-producción)
+16. [Copias de seguridad](#copias-de-seguridad)
+17. [Migrar desde la versión 1](#migrar-desde-la-versión-1)
+18. [Solución de problemas](#solución-de-problemas)
+19. [Créditos](#créditos)
+20. [Licencia](#licencia)
 
 ## Características
 
@@ -234,6 +239,21 @@ Notas:
 
 Botón **Estadísticas** de la barra del panel (o del menú de usuario): muestra con barras cuánto ocupas **por tipo** (imágenes, vídeos, audio, documentos, comprimidos, código y otros), las **carpetas que más pesan** y los **archivos antiguos** (sin modificar desde hace más de un año, los 25 más pesados). Desde los antiguos se puede mandar un archivo a la **papelera**. Análisis acotado (30 000 archivos, 20 s) y solo de lectura: no cambia nada en la base de datos.
 
+### Por tipo y carpetas vacías (2.26.0)
+
+Dos botones nuevos en la barra del panel, junto a *Favoritos*:
+
+- **Por tipo:** lista todos tus archivos de un tipo (`images`, `video`, `audio`, `docs`, `archives`), de más nuevo a más antiguo (300 máx.), vengan de la carpeta que vengan.
+- **Carpetas vacías:** carpetas sin ningún archivo (ni en sus subcarpetas), para ordenar. No borra nada; las eliminas tú. Para duplicados y archivos grandes sigue estando *Limpieza*.
+
+API (Bearer o sesión; `/api/client/info` las anuncia como `by-type` y `empty-folders`, `api` = 4):
+
+| Ruta | Respuesta |
+| --- | --- |
+| `GET /api/by-type?type=images` | `{type, items:[{name,path,size,mtime}]}`; tipo no válido → error con la lista de tipos |
+| `GET /api/empty-folders` | `{items:[{name,path,isDir:true,mtime}]}` (500 máx.) |
+| `GET /api/health` (pública) | `{ok, app, version, uptime, time}` — ahora incluye `uptime` (segundos) y `time` para monitores, PM2 o proxies |
+
 ### Limpieza de espacio
 
 Botón **Limpieza** de la barra del panel (o del menú de usuario): analiza tu carpeta y muestra los **25 archivos más grandes** y los **duplicados** (mismo contenido, comprobado con SHA-256, no solo el nombre), con el espacio que sobra. Cada archivo tiene un botón para moverlo a la papelera. Revisa hasta 30 000 archivos; si tienes más, avisa de que el análisis es parcial. Ruta: `GET /api/cleanup`.
@@ -381,7 +401,7 @@ En **Admin → IA → Anuncios** el administrador decide, para el asistente del 
 - La versión instalada está en `data/version.json`:
 
   ```json
-  { "version": "2.25.1" }
+  { "version": "2.26.0" }
   ```
 
 - Cada 2 minutos el servidor lee ese archivo local y lo compara con el `data/version.json` publicado en GitHub. Si el de GitHub es más nuevo (se comparan los números: `2.10` es mayor que `2.9`), los **administradores** ven un aviso de nueva versión con instrucciones para actualizar.
@@ -751,6 +771,45 @@ Además de la cookie del navegador, la API admite un **token de sesión** equiva
 
 El token caduca según la duración de sesión de **Admin → Avanzado** (1-90 días), se guarda solo como hash en el servidor y debe almacenarse en el almacén seguro del sistema (Keystore de Android, Credential Locker/DPAPI de Windows, Secret Service/libsecret en Linux).
 
+### App de Android
+> **1.7.0-1.7.1:** nuevo diseño de Inicio con mosaicos y, solo para **administradores**, el gestor *Archivos de usuarios*: lista los usuarios y permite ver, descargar y eliminar sus archivos y carpetas (sin crear, modificar ni renombrar; lo borrado va a la papelera del usuario). Usa `/api/admin/files`, `/api/admin/file` y `/api/admin/delete-file`.  La 1.7.1 corrige la notificación de sincronización, que ahora se actualiza en tiempo real con el archivo y su porcentaje.
+
+App para Android 7.0 y posteriores (incluido Android 16), con servidor SynapseBox **2.24.1 o superior**. Configuración inicial del servidor (URL, búsqueda en la red local o IP y puerto), inicio de sesión con 2FA y registro, **panel web completo dentro de la app**, subida de archivos (también desde *Compartir* de otras apps), **sincronización de una carpeta** en segundo plano (bidireccional, solo subir o solo bajar; copia inicial o solo cambios; nuevos, modificados, borrados y carpetas por separado; exclusiones y tamaño máximo), compatibilidad con ngrok, **Apariencia** (temas claro/oscuro/AMOLED, color de acento, esquinas), **Seguridad** (bloqueo con el PIN o la huella del teléfono, ocultar contenido, solo HTTPS, sesiones, contraseña) y **Más funciones** (registro de actividad, pausa, diagnóstico). El token se guarda cifrado con el Keystore de Android.
+
+**Dónde está:** [`APPS/Android`](https://github.com/OctavioproYT452/SynapseBox/tree/main/APPS/Android) (versión actual: [`SynapseBox-v1.7.1.apk`](https://github.com/OctavioproYT452/SynapseBox/blob/main/APPS/Android/SynapseBox-v1.7.1.apk)).
+
+**Instalar**
+1. Abre en el teléfono el enlace del APK (o la carpeta `APPS/Android` y elige el `SynapseBox-vX.Y.Z.apk` de versión más alta) y descárgalo con el botón de descarga de GitHub.
+2. Ábrelo desde las descargas. Android pedirá permitir **instalar apps de esta fuente** (navegador o gestor de archivos): actívalo y vuelve atrás.
+3. Pulsa **Instalar**, abre **SynapseBox** y configura tu servidor (URL, búsqueda en la red local o IP y puerto). Para sincronizar una carpeta concede el permiso «Acceso a todos los archivos».
+
+**Actualizar:** desde la propia app (*Inicio → Buscar actualizaciones*; avisa una vez al día) o instalando el APK nuevo encima (se conservan sesión y ajustes); si junto al APK hay un `.sha256`, se verifica antes de instalar. **Compilar:** Android Studio o JDK 17 + Android SDK 36 con Gradle (ver `LEEME-ANDROID.md`, y `COMPILAR-EN-TERMUX.md` para hacerlo en el propio móvil).
+
+### App de Windows (escritorio)
+Cliente para Windows 10/11 (64 bits), en Rust: `synapsebox.exe` (ventana con iconos SVG: sesión, registro, espacio, subida de archivos, **sincronización de una carpeta**, sesiones, contraseña, actualizaciones) y `sbox.exe` (línea de órdenes con todas las funciones, mismas órdenes que `sbox` en Linux). Usa el token Bearer y la API para apps (`client: "windows"`). Se compila **desde Debian 13 solo con la terminal** (compilación cruzada con mingw-w64) y se instala con un script de PowerShell para tu usuario, sin administrador.
+
+**Dónde está**
+- **App ya compilada (instalador):** [`APPS/Windows/dist`](https://github.com/OctavioproYT452/SynapseBox/tree/main/APPS/Windows/dist) → `SynapseBox-Windows-vX.Y.Z.zip` (con `synapsebox.exe`, `sbox.exe` e `install.ps1`).
+- **Código fuente:** [`APPS/Windows`](https://github.com/OctavioproYT452/SynapseBox/tree/main/APPS/Windows) (`Cargo.toml`, `src/`, `build-windows.sh`, `LEEME-WINDOWS.md`).
+
+**Instalar en Windows 10/11 (64 bits)**
+1. Abre [`APPS/Windows/dist`](https://github.com/OctavioproYT452/SynapseBox/tree/main/APPS/Windows/dist), entra en el `SynapseBox-Windows-vX.Y.Z.zip` de versión más alta y pulsa **Download raw file** (descargar).
+2. Descomprímelo (clic derecho → *Extraer todo…*) en cualquier carpeta.
+3. Haz doble clic en **`install.cmd`**. Instala para tu usuario, sin administrador, en `%LOCALAPPDATA%\Programs\SynapseBox`; crea el acceso directo **SynapseBox** en el menú Inicio y añade `sbox` al PATH. Para sincronizar también con la ventana cerrada, en PowerShell: `.\install.ps1 -Service` (o después `sbox service on`).
+4. Abre **SynapseBox** desde el menú Inicio y escribe la dirección de tu servidor. En una terminal nueva: `sbox help`.
+
+Windows SmartScreen puede avisar de que el programa no está firmado: *Más información → Ejecutar de todos modos*. Si el navegador bloquea el `.zip`, conserva la descarga.
+
+**Compilar desde el código fuente (Debian 13, solo terminal)**
+```bash
+git clone --depth 1 https://github.com/OctavioproYT452/SynapseBox.git
+cd SynapseBox/APPS/Windows
+./build-windows.sh        # instala mingw-w64 y Rust (rustup, destino x86_64-pc-windows-gnu), compila y crea dist/SynapseBox-Windows-vX.Y.Z.zip
+```
+Después instálalo como arriba. Pasos manuales y opciones (`--skip-deps`, `--debug`) en `LEEME-WINDOWS.md`.
+
+**Actualizar**: *Actualizaciones* → *Descargar e instalar* (o `sbox update install`); la app revisa la carpeta [`APPS/Windows/dist`](https://github.com/OctavioproYT452/SynapseBox/tree/main/APPS/Windows/dist) de la rama `main`, elige el `SynapseBox-Windows-vX.Y.Z.zip` de versión más alta y sustituye los `.exe`. **Publicar una versión (administrador):** sube la versión en `Cargo.toml`, ejecuta `./build-windows.sh` y sube `dist/SynapseBox-Windows-vX.Y.Z.zip` a `APPS/Windows/dist/`. Desinstalar: `uninstall.ps1` (con `-Purge` borra también los ajustes). Más detalles en `LEEME-WINDOWS.md`.
+
 ### API para apps nativas (2.25.0)
 Todas con `Authorization: Bearer <token>` (salvo las marcadas como públicas). Rutas relativas a tu carpeta; admiten `collab=<id>`.
 
@@ -835,6 +894,8 @@ Todas las rutas `/api/*` devuelven JSON y requieren sesión, salvo `login`, `reg
 | `GET` / `POST` | `/api/trash`, `/api/trash/restore`, `/api/trash/delete`, `/api/trash/empty` | Papelera de reciclaje. |
 | `GET` | `/api/stats` | Espacio por tipo, carpetas más pesadas y archivos antiguos. |
 | `GET` | `/api/cleanup` | Archivos más grandes y duplicados. |
+| `GET` | `/api/by-type?type=`, `/api/empty-folders` | Archivos por tipo (`images`, `video`, `audio`, `docs`, `archives`) y carpetas vacías (2.26.0). |
+| `GET` | `/api/health` | Pública: `{ok, app, version, uptime, time}` (`uptime` y `time` desde 2.26.0). |
 | `GET` | `/api/collab/shared` | Carpetas que otros han compartido conmigo (dueño y rol). |
 | `GET` / `POST` | `/api/collab/folder`, `/api/collab/add`, `/api/collab/role`, `/api/collab/remove`, `/api/collab/mine`, `/api/collab/roles` | Gestión de colaboradores (dueño); `remove` también permite abandonar una carpeta compartida. |
 | `GET` / `POST` | `/api/theme` | Tema activo del usuario. |
