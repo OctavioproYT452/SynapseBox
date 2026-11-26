@@ -14,7 +14,7 @@ Se compila **desde Debian 13 con solo la terminal** (compilación cruzada con mi
 git clone --depth 1 https://github.com/OctavioproYT452/SynapseBox.git
 cd SynapseBox/APPS/Windows
 ./build-windows.sh
-# (o, con el zip que recibiste: unzip SynapseBox-Windows_1.2.0.zip && cd windows && ./build-windows.sh)
+# (o, con el zip que recibiste: unzip SynapseBox-Windows_1.3.0.zip && cd windows && ./build-windows.sh)
 ```
 
 El script hace, por ti, esto (puedes copiarlo a mano si prefieres):
@@ -35,13 +35,13 @@ cargo build --release
 #    → target/x86_64-pc-windows-gnu/release/synapsebox.exe  y  sbox.exe
 ```
 
-Al terminar, `dist/SynapseBox-Windows-v1.2.0.zip` contiene los dos `.exe`, `install.ps1`/`install.cmd`, `uninstall.ps1` y este archivo. Opciones: `--skip-deps` (ya tienes todo instalado) y `--debug` (compilación rápida para probar). La primera compilación descarga las librerías y tarda unos minutos.
+Al terminar, `dist/SynapseBox-Windows-v1.3.0.zip` contiene los dos `.exe`, `install.ps1`/`install.cmd`, `uninstall.ps1` y este archivo. Opciones: `--skip-deps` (ya tienes todo instalado) y `--debug` (compilación rápida para probar). La primera compilación descarga las librerías y tarda unos minutos.
 
 Si algo falla, copia el error tal cual (las últimas 30 líneas de `cargo build`) para corregirlo.
 
 ## Instalar en Windows
 
-1. Copia `dist/SynapseBox-Windows-v1.2.0.zip` a tu PC con Windows (por ejemplo con `scp`), descomprímelo.
+1. Copia `dist/SynapseBox-Windows-v1.3.0.zip` a tu PC con Windows (por ejemplo con `scp`), descomprímelo.
 2. Doble clic en **`install.cmd`** (o en PowerShell: `powershell -ExecutionPolicy Bypass -File install.ps1`). Se instala para tu usuario en `%LOCALAPPDATA%\Programs\SynapseBox` (sin administrador), crea el acceso directo **SynapseBox** en el menú Inicio y añade `sbox` al PATH. Con `-Service` activa también la sincronización en segundo plano.
 3. Abre **SynapseBox** y escribe la dirección de tu servidor (`https://nube.ejemplo.com`, `192.168.1.20:3001` o un enlace de ngrok), usuario y contraseña. En una terminal nueva: `sbox help`.
 
@@ -65,6 +65,11 @@ sbox sessions ; sbox passwd ; sbox trash ; sbox search informe ; sbox update ins
 ```
 
 `sbox help` muestra todas las órdenes. Autocompletado en PowerShell: `sbox completion | Out-String | Invoke-Expression` (añádelo a tu `$PROFILE`).
+
+## Novedades 1.3.0
+
+- **Nuevo diseño, igual que Android y en tema oscuro por defecto:** fondo oscuro, tarjetas redondeadas con título en color de acento, barra lateral renovada, cabeceras con degradado, botones redondeados y **mosaicos de acción** en Inicio (Subir, Sincronizar, Explorar, Panel web).
+- **Explorar (nuevo):** página para buscar por nombre y filtrar tus archivos por *Recientes*, *Imágenes*, *Vídeos*, *Audio*, *Documentos*, *Comprimidos* o *Carpetas vacías*; cada resultado se puede ver, descargar o copiar su ruta. Terminal: `sbox recent`, `sbox type <images|video|audio|docs|archives>`, `sbox empty-folders` (con `-l` y `--json`). `type` y `empty-folders` necesitan servidor 2.26 o superior.
 
 ## Novedades 1.2.0
 

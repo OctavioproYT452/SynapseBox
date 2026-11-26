@@ -14,21 +14,30 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+thread_local! { static NAV: RefCell<Option<Rc<dyn Fn(&str)>>> = RefCell::new(None); } // cambiar de página desde otras (mosaicos de Inicio)
 static CANCEL: AtomicBool = AtomicBool::new(false);
 static STOP: AtomicBool = AtomicBool::new(false);
 
 const CSS: &str = "
+window, .background { background-color: #0f1117; color: #e6e8f0; }
 .hero { background-image: linear-gradient(135deg, #6d7cff, #3f4dd1); padding: 22px 28px; border-radius: 0 0 22px 22px; }
 .hero .h1 { font-size: 26px; font-weight: 800; color: white; }
 .hero .sub { color: rgba(255,255,255,0.85); }
-.card { background-color: alpha(@theme_fg_color, 0.05); border: 1px solid alpha(@theme_fg_color, 0.12); border-radius: 16px; padding: 16px 18px; }
-.card-title { font-weight: 700; font-size: 15px; }
-.sidebar { background-color: alpha(@theme_fg_color, 0.04); padding: 14px 10px; min-width: 190px; }
+.card { background-color: #181b26; border: 1px solid #2a2f3e; border-radius: 18px; padding: 16px 18px; }
+.card-title { font-weight: 700; font-size: 15px; color: #8a95ff; }
+.sidebar { background-color: #131620; padding: 14px 10px; min-width: 190px; border-right: 1px solid #222736; }
 .brand { font-weight: 800; font-size: 17px; padding: 4px 10px 14px 10px; }
-.nav { border-radius: 10px; padding: 9px 12px; }
-.nav.active { background-color: alpha(#6d7cff, 0.25); font-weight: 700; }
+.nav { border-radius: 12px; padding: 9px 12px; }
+.nav.active { background-color: alpha(#6d7cff, 0.28); font-weight: 700; }
+button { border-radius: 12px; background-image: none; background-color: #20243a; border: 1px solid #2a2f3e; color: #e6e8f0; }
+button:hover { background-color: #2c324e; }
+button.flat { background-color: transparent; border-color: transparent; }
+button.flat:hover { background-color: alpha(#6d7cff, 0.18); }
+button.suggested-action { background-color: #3f4dd1; border-color: #3f4dd1; color: white; font-weight: 700; }
+button.tile { background-image: linear-gradient(135deg, #5563e8, #3f4dd1); border: none; color: white; font-weight: 700; border-radius: 18px; padding: 16px 10px; }
+entry, passwordentry { border-radius: 12px; background-color: #0f1117; border: 1px solid #2a2f3e; color: #e6e8f0; }
 .dim { opacity: 0.65; }
-.err { color: #d93025; }
+.err { color: #ff6b6b; }
 .pill { border-radius: 20px; padding: 4px 12px; font-size: 13px; }
 .pill-ok { background-color: #d7f5dc; color: #1b5e20; }
 .pill-off { background-color: #ffe8c7; color: #8a4b00; }
@@ -92,6 +101,7 @@ pub fn run() {
 
 fn build(app: &gtk::Application) {
     icons::setup();
+    if let Some(st) = gtk::Settings::default() { #[allow(deprecated)] st.set_gtk_application_prefer_dark_theme(true); } // oscuro por defecto, como la app de Android
     let prov = gtk::CssProvider::new(); prov.load_from_data(CSS);
     if let Some(d) = gtk::gdk::Display::default() { gtk::style_context_add_provider_for_display(&d, &prov, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION); }
     let win = gtk::ApplicationWindow::builder().application(app).title("SynapseBox").default_width(1000).default_height(700).build();
@@ -226,17 +236,20 @@ fn build_main(win: &gtk::ApplicationWindow, root: &gtk::Stack, refreshers: &Rc<R
     let pages: Vec<(&str, &str, &str, gtk::Widget)> = vec![
         ("home", "home", "Inicio", build_home(win, refreshers)),
         ("sync", "sync", "Sincronización", build_sync(win, refreshers)),
+        ("explore", "search", "Explorar", build_explore(win)),
         ("admin", "folder", "Archivos de usuarios", build_admin(win, refreshers)),
         ("updates", "update", "Actualizaciones", build_updates(refreshers)),
         ("account", "account", "Cuenta", build_account(root, refreshers)),
     ];
     let mut admin_btn: Option<gtk::Button> = None;
+    let show: Rc<dyn Fn(&str)> = { let (inner, navs) = (inner.clone(), navs.clone()); Rc::new(move |n: &str| { inner.set_visible_child_name(n); for (k, bt) in navs.borrow().iter() { if k == n { bt.add_css_class("active") } else { bt.remove_css_class("active") } } }) };
+    NAV.with(|n| *n.borrow_mut() = Some(show.clone()));
     for (name, icon, title, w) in pages {
         inner.add_named(&w, Some(name));
         let b = gtk::Button::new(); b.add_css_class("flat"); b.add_css_class("nav");
         let it = IconText::new(icon, title); it.root.set_halign(gtk::Align::Start); b.set_child(Some(&it.root));
-        let (inner2, navs2, n) = (inner.clone(), navs.clone(), name.to_string());
-        b.connect_clicked(move |_| { inner2.set_visible_child_name(&n); for (k, bt) in navs2.borrow().iter() { if *k == n { bt.add_css_class("active") } else { bt.remove_css_class("active") } } });
+        let (show2, n) = (show.clone(), name.to_string());
+        b.connect_clicked(move |_| show2(&n));
         if name == "admin" { b.set_visible(false); admin_btn = Some(b.clone()); } // solo se muestra a administradores
         side.append(&b); navs.borrow_mut().push((name.to_string(), b));
     }
@@ -285,6 +298,14 @@ fn build_home(win: &gtk::ApplicationWindow, refreshers: &Rc<RefCell<Vec<Box<dyn 
         k.borrow_mut().push(d);
       }); }
     c1.append(&usage); c1.append(&bar); c1.append(&upload); c1.append(&upl.root); c1.append(&open_web); body.append(&c1);
+    let tiles = hbox(10); tiles.set_homogeneous(true); tiles.set_margin_bottom(12);
+    for (ic, t, act) in [("upload", "Subir", 0), ("sync", "Sincronizar", 1), ("search", "Explorar", 2), ("home", "Panel web", 3)] {
+        let b = gtk::Button::new(); b.add_css_class("tile"); let it = IconText::new(ic, t); it.root.set_halign(gtk::Align::Center); b.set_child(Some(&it.root));
+        let up = upload.clone();
+        b.connect_clicked(move |_| match act { 0 => up.emit_clicked(), 1 => sync_now(), 2 => NAV.with(|n| if let Some(f) = n.borrow().as_ref() { f("explore") }), _ => open(&format!("{}/panel.html", Config::load().server)) });
+        tiles.append(&b);
+    }
+    body.prepend(&tiles);
 
     let c2 = card(Some("Sincronización de carpeta")); c2.set_margin_bottom(12);
     let pill = IconText::new("dot-off", ""); pill.root.add_css_class("pill"); pill.root.set_halign(gtk::Align::Start);
@@ -620,6 +641,72 @@ fn build_admin(win: &gtk::ApplicationWindow, refreshers: &Rc<RefCell<Vec<Box<dyn
     // al volver a abrir la página tras un cambio de cuenta, se recarga la lista de usuarios
     let last = Rc::new(RefCell::new(String::new()));
     refreshers.borrow_mut().push(Box::new(move || { let t = Config::load().token; if *last.borrow() != t { *last.borrow_mut() = t.clone(); if !t.is_empty() { a.users(); } } }));
+    page(&h, &body)
+}
+
+// ---------- Explorar: buscar y filtrar tus archivos ----------
+#[derive(Clone)]
+struct Exp { win: gtk::ApplicationWindow, list: gtk::Box, msg: gtk::Label, keep: Rc<RefCell<Vec<gtk::FileChooserNative>>> }
+impl Exp {
+    fn run(&self, ep: &'static str, q: Vec<(&'static str, String)>) {
+        self.msg.set_label("Cargando…"); while let Some(c) = self.list.first_child() { self.list.remove(&c); }
+        let c = Config::load(); let me = self.clone();
+        bg(move || { let qq: Vec<(&str, &str)> = q.iter().map(|(k, v)| (*k, v.as_str())).collect(); Api::new(&c.server, &c.token).explore(ep, &qq) }, move |r| match r {
+            Ok(v) => { me.msg.set_label(if v.is_empty() { "Sin resultados." } else { "" }); me.show(v); }
+            Err(e) => { let t = e.to_string(); me.msg.set_label(&if t.contains("404") { "Tu servidor es antiguo: este filtro necesita SynapseBox 2.26 o superior".to_string() } else { t }); }
+        });
+    }
+    fn show(&self, v: Vec<api::Entry>) {
+        for e in v {
+            let r = hbox(8); r.set_margin_top(2); r.set_margin_bottom(2);
+            let col = vbox(0); col.set_hexpand(true); col.append(&lbl(&e.name));
+            col.append(&dim(&format!("{}{}", if e.is_dir { String::new() } else { format!("{} · ", fmt_bytes(e.size)) }, ops::parent(&e.path)))); r.append(&col);
+            if !e.is_dir {
+                let (v1, d1) = (btn("Ver", "flat"), btn("Descargar", "flat"));
+                { let (me, e2) = (self.clone(), e.clone()); v1.connect_clicked(move |_| me.view(&e2)); }
+                { let (me, e2) = (self.clone(), e.clone()); d1.connect_clicked(move |_| me.save(&e2)); }
+                r.append(&v1); r.append(&d1);
+            }
+            let cp = btn("Copiar ruta", "flat"); { let (me, p) = (self.clone(), e.path.clone()); cp.connect_clicked(move |_| { me.win.clipboard().set_text(&p); me.msg.set_label("Ruta copiada"); }); }
+            r.append(&cp); self.list.append(&r);
+        }
+    }
+    fn view(&self, e: &api::Entry) {
+        let dir = std::env::temp_dir().join("synapsebox-view"); let _ = std::fs::remove_dir_all(&dir); let _ = std::fs::create_dir_all(&dir);
+        let dest = dir.join(&e.name); let c = Config::load(); let p = e.path.clone(); self.msg.set_label("Abriendo…"); let me = self.clone();
+        bg(move || Api::new(&c.server, &c.token).download(&p, &dest, false).map(|_| dest), move |r| match r { Ok(d) => { me.msg.set_label(""); open(&d.to_string_lossy()); } Err(e) => me.msg.set_label(&e.to_string()) });
+    }
+    fn save(&self, e: &api::Entry) {
+        #[allow(deprecated)]
+        let d = gtk::FileChooserNative::new(Some("Guardar archivo"), Some(&self.win), gtk::FileChooserAction::Save, Some("Guardar"), Some("Cancelar"));
+        #[allow(deprecated)]
+        d.set_current_name(&e.name);
+        let (me, p) = (self.clone(), e.path.clone());
+        #[allow(deprecated)]
+        d.connect_response(move |d, r| {
+            if r != gtk::ResponseType::Accept { return }
+            let Some(dest) = d.file().and_then(|f| f.path()) else { return };
+            let c = Config::load(); let (p2, me2) = (p.clone(), me.clone()); me.msg.set_label("Descargando…");
+            bg(move || Api::new(&c.server, &c.token).download(&p2, &dest, false), move |r| match r { Ok(()) => me2.msg.set_label("Archivo guardado"), Err(e) => me2.msg.set_label(&e.to_string()) });
+        });
+        #[allow(deprecated)]
+        d.show();
+        self.keep.borrow_mut().push(d);
+    }
+}
+
+fn build_explore(win: &gtk::ApplicationWindow) -> gtk::Widget {
+    let (h, _, _) = hero("Explorar", "Busca y filtra tus archivos");
+    let body = vbox(8);
+    let search = gtk::Entry::builder().placeholder_text("Buscar por nombre (2 letras o más)").build(); body.append(&search);
+    let chips = hbox(6); chips.set_halign(gtk::Align::Start);
+    let msg = dim(""); let list = vbox(2);
+    let ex = Exp { win: win.clone(), list: list.clone(), msg: msg.clone(), keep: Rc::new(RefCell::new(Vec::new())) };
+    let go: Vec<(&str, &'static str, Option<&'static str>)> = vec![("Recientes", "api/recent", None), ("Imágenes", "api/by-type", Some("images")), ("Vídeos", "api/by-type", Some("video")), ("Audio", "api/by-type", Some("audio")), ("Documentos", "api/by-type", Some("docs")), ("Comprimidos", "api/by-type", Some("archives")), ("Carpetas vacías", "api/empty-folders", None)];
+    for (t, ep, ty) in go { let b = btn(t, ""); let me = ex.clone(); b.connect_clicked(move |_| me.run(ep, ty.map(|x| vec![("type", x.to_string())]).unwrap_or_default())); chips.append(&b); }
+    let sw = gtk::ScrolledWindow::builder().child(&chips).vscrollbar_policy(gtk::PolicyType::Never).build(); body.append(&sw);
+    { let (me, s) = (ex.clone(), search.clone()); search.connect_activate(move |_| { let q = s.text().trim().to_string(); if q.chars().count() >= 2 { me.run("api/search", vec![("q", q)]); } else { me.msg.set_label("Escribe al menos 2 letras"); } }); }
+    body.append(&msg); let c = card(None); c.append(&list); body.append(&c);
     page(&h, &body)
 }
 

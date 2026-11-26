@@ -12,8 +12,8 @@ Cliente de escritorio (GTK 4, escrito en Rust) para tu servidor SynapseBox 2.23 
    - Si tu `cargo` es anterior a 1.80, instala Rust desde <https://rustup.rs>.
 2. Descomprime y ejecuta el instalador:
    ```bash
-   tar -xzf SynapseBox-v1.3.0.tar.gz
-   cd synapsebox-linux-1.3.0
+   tar -xzf SynapseBox-v1.4.0.tar.gz
+   cd synapsebox-linux-1.4.0
    ./install.sh              # para tu usuario (~/.local), sin sudo
    ```
    La primera compilación descarga las librerías de Rust y tarda unos minutos. Para todos los usuarios: `sudo ./install.sh --prefix /usr/local`.
@@ -57,6 +57,11 @@ La app mira la carpeta **`APPS/Linux/dist`** de la rama `main` de `OctavioproYT4
 ## Desinstalar
 
 `./uninstall.sh` (añade `--purge` para borrar también ajustes y estado; tus archivos no se tocan).
+
+## Novedades 1.4.0
+
+- **Nuevo diseño, igual que Android y en tema oscuro por defecto:** fondo oscuro, tarjetas redondeadas con título en color de acento, barra lateral renovada, botones redondeados y **mosaicos de acción** en Inicio (Subir, Sincronizar, Explorar, Panel web).
+- **Explorar (nuevo):** página para buscar por nombre y filtrar tus archivos por *Recientes*, *Imágenes*, *Vídeos*, *Audio*, *Documentos*, *Comprimidos* o *Carpetas vacías*; cada resultado se puede ver, descargar o copiar su ruta. Terminal: `sbox recent`, `sbox type <images|video|audio|docs|archives>`, `sbox empty-folders` (con `-l` y `--json`). `type` y `empty-folders` necesitan servidor 2.26 o superior.
 
 ## Novedades 1.3.0
 

@@ -143,6 +143,8 @@ impl Api {
     /// Contenido de una carpeta (ruta vacía = raíz).
     pub fn list(&self, path: &str) -> R<Vec<Entry>> { Ok(Self::entries(&self.get("api/list", &[("path", path)])?)) }
     pub fn search(&self, q: &str) -> R<Vec<Entry>> { Ok(Self::entries(&self.get("api/search", &[("q", q)])?)) }
+    /// Resultados de un filtro del servidor: `api/recent`, `api/by-type?type=…` (images, video, audio, docs, archives), `api/empty-folders` (2.26+).
+    pub fn explore(&self, endpoint: &str, q: &[(&str, &str)]) -> R<Vec<Entry>> { Ok(Self::entries(&self.get(endpoint, q)?)) }
     pub fn rename(&self, path: &str, new_name: &str) -> R<()> { self.post("api/rename", &json!({"path": path, "newName": new_name}), true).map(|_| ()) }
     pub fn move_to(&self, path: &str, dest: &str) -> R<()> { self.post("api/move", &json!({"path": path, "dest": dest}), true).map(|_| ()) }
     pub fn copy_to(&self, path: &str, dest: &str) -> R<()> { self.post("api/copy", &json!({"path": path, "dest": dest}), true).map(|_| ()) }

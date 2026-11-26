@@ -25,6 +25,8 @@ enum Msg {
     Service(bool),
     IsAdmin(bool),
     LocalServer(Option<String>),
+    ExploreList(R<Vec<api::Entry>>),
+    ExploreInfo(bool, String),
     AdminUsers(R<Vec<AdminUser>>),
     AdminList(String, String, R<Vec<api::Entry>>),
     AdminInfo(bool, String),
@@ -32,13 +34,14 @@ enum Msg {
 }
 
 #[derive(PartialEq, Clone, Copy)]
-enum Page { Home, Sync, Admin, Updates, Account }
+enum Page { Home, Sync, Admin, Explore, Updates, Account }
 
 struct Gui {
     cfg: Config, cfg_t: Instant, status: Status, status_t: Instant, page: Page,
     tx: mpsc::Sender<Msg>, rx: mpsc::Receiver<Msg>, stop: Arc<AtomicBool>, logo: Option<egui::TextureHandle>,
     // inicio de sesión
     inst_msg: String,
+    exp_items: Vec<api::Entry>, exp_busy: bool, exp_q: String, exp_msg: Option<(bool, String)>,
     srv: String, user: String, pass: String, pass2: String, code: String, registering: bool, ticket: Option<String>, login_msg: String, busy: bool, codes: Vec<String>,
     // inicio
     usage: Option<(i64, i64)>, usage_t: Option<Instant>, upl: Option<(bool, String)>, uploading: bool,
@@ -60,6 +63,7 @@ pub fn run() -> eframe::Result {
     let opts = eframe::NativeOptions { viewport: vp, ..Default::default() };
     eframe::run_native("SynapseBox", opts, Box::new(|cc| {
         egui_extras::install_image_loaders(&cc.egui_ctx);
+        apply_theme(&cc.egui_ctx);
         Ok(Box::new(Gui::new()))
     }))
 }
@@ -94,6 +98,7 @@ fn icon_src(name: &str) -> egui::ImageSource<'static> {
         "error" => egui::include_image!("../assets/icons/error.svg"),
         "dot-on" => egui::include_image!("../assets/icons/dot-on.svg"),
         "folder" => egui::include_image!("../assets/icons/folder.svg"),
+        "search" => egui::include_image!("../assets/icons/search.svg"),
         _ => egui::include_image!("../assets/icons/dot-off.svg"),
     }
 }
@@ -111,10 +116,49 @@ fn note(ui: &mut egui::Ui, kind: &str, text: &str) {
     let (ic, col) = match kind { "ok" => ("check", GREEN), "warn" => ("warn", AMBER), "err" => ("error", RED), "on" => ("dot-on", GREEN), _ => ("dot-off", ui.visuals().weak_text_color()) };
     ui.horizontal_wrapped(|ui| { icon(ui, ic, Some(col)); ui.label(RichText::new(text).color(col)); });
 }
+// ---------- Tema (mismo estilo que la app de Android; oscuro por defecto) ----------
+const ACCENT: Color32 = Color32::from_rgb(109, 124, 255);
+const ACCENT_D: Color32 = Color32::from_rgb(63, 77, 209);
+const SURFACE: Color32 = Color32::from_rgb(15, 17, 23);
+const CARD: Color32 = Color32::from_rgb(24, 27, 38);
+const OUTLINE: Color32 = Color32::from_rgb(42, 47, 62);
+
+fn apply_theme(ctx: &egui::Context) {
+    ctx.options_mut(|o| o.theme_preference = egui::ThemePreference::Dark);
+    let mut v = egui::Visuals::dark();
+    v.panel_fill = SURFACE; v.window_fill = CARD; v.extreme_bg_color = Color32::from_rgb(11, 12, 17); v.faint_bg_color = CARD;
+    v.window_rounding = egui::Rounding::same(18.0); v.menu_rounding = egui::Rounding::same(12.0);
+    v.hyperlink_color = ACCENT; v.selection.bg_fill = ACCENT_D; v.selection.stroke = egui::Stroke::new(1.0_f32, ACCENT);
+    v.widgets.noninteractive.bg_fill = CARD; v.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0_f32, OUTLINE);
+    v.widgets.inactive.bg_fill = Color32::from_rgb(32, 36, 52); v.widgets.inactive.weak_bg_fill = Color32::from_rgb(32, 36, 52);
+    v.widgets.hovered.bg_fill = Color32::from_rgb(44, 50, 78); v.widgets.hovered.weak_bg_fill = Color32::from_rgb(44, 50, 78);
+    v.widgets.active.bg_fill = ACCENT_D; v.widgets.active.weak_bg_fill = ACCENT_D;
+    for w in [&mut v.widgets.noninteractive, &mut v.widgets.inactive, &mut v.widgets.hovered, &mut v.widgets.active, &mut v.widgets.open] { w.rounding = egui::Rounding::same(12.0); }
+    ctx.set_visuals_of(egui::Theme::Dark, v);
+    ctx.style_mut_of(egui::Theme::Dark, |s| { s.spacing.item_spacing = egui::vec2(9.0, 9.0); s.spacing.button_padding = egui::vec2(14.0, 7.0); });
+}
+/// Cabecera con degradado, como la de la app de Android.
+fn hero(ui: &mut egui::Ui, title: &str, sub: &str) {
+    let (rect, _) = ui.allocate_exact_size(egui::vec2(ui.available_width(), 78.0), egui::Sense::hover());
+    let mid = Color32::from_rgb(86, 100, 232);
+    let mut mesh = egui::Mesh::default();
+    mesh.colored_vertex(rect.left_top(), ACCENT); mesh.colored_vertex(rect.right_top(), mid); mesh.colored_vertex(rect.right_bottom(), ACCENT_D); mesh.colored_vertex(rect.left_bottom(), mid);
+    mesh.add_triangle(0, 1, 2); mesh.add_triangle(0, 2, 3);
+    let p = ui.painter();
+    p.add(egui::Shape::mesh(mesh));
+    p.text(rect.left_top() + egui::vec2(22.0, 14.0), egui::Align2::LEFT_TOP, title, egui::FontId::proportional(25.0), Color32::WHITE);
+    p.text(rect.left_top() + egui::vec2(22.0, 48.0), egui::Align2::LEFT_TOP, sub, egui::FontId::proportional(13.0), Color32::from_white_alpha(215));
+    ui.add_space(8.0);
+}
+/// Mosaico de acción rápida (icono + título).
+fn tile(ui: &mut egui::Ui, ic: &str, t: &str, w: f32) -> bool {
+    let img = egui::Image::new(icon_src(ic)).tint(Color32::WHITE).fit_to_exact_size(egui::vec2(22.0, 22.0));
+    ui.add_sized([w, 64.0], egui::Button::image_and_text(img, RichText::new(t).strong().color(Color32::WHITE)).fill(ACCENT_D)).clicked()
+}
 fn card(ui: &mut egui::Ui, title: &str, add: impl FnOnce(&mut egui::Ui)) {
-    egui::Frame::group(ui.style()).inner_margin(14.0).show(ui, |ui| {
+    egui::Frame::none().fill(CARD).stroke(egui::Stroke::new(1.0_f32, OUTLINE)).rounding(18.0).inner_margin(16.0).show(ui, |ui| {
         ui.set_width(ui.available_width());
-        if !title.is_empty() { ui.label(RichText::new(title).strong().size(15.0)); ui.add_space(6.0); }
+        if !title.is_empty() { ui.label(RichText::new(title).strong().size(15.0).color(ACCENT)); ui.add_space(6.0); }
         add(ui);
     });
     ui.add_space(10.0);
@@ -142,7 +186,7 @@ impl Gui {
         // Con la ventana abierta sincroniza solo, salvo que ya lo haga el servicio en segundo plano.
         if !config::service_alive() { let s = stop.clone(); std::thread::spawn(move || runner::daemon(&s, false)); }
         Gui {
-            inst_msg: String::new(),
+            inst_msg: String::new(), exp_items: vec![], exp_busy: false, exp_q: String::new(), exp_msg: None,
             srv: cfg.server.clone(), user: cfg.username.clone(), local_buf: cfg.local_path.clone(), remote_buf: cfg.remote_path.clone(),
             cfg, cfg_t: Instant::now(), status: Status::load(), status_t: Instant::now(), page: Page::Home, tx, rx, stop, logo: None,
             pass: String::new(), pass2: String::new(), code: String::new(), registering: false, ticket: None, login_msg: String::new(), busy: false, codes: vec![],
@@ -201,6 +245,8 @@ impl Gui {
                     Some(v) => { self.srv = serverinst::LOCAL.into(); self.inst_msg = format!("SynapseBox v{} encontrado en este equipo. Crea tu cuenta (el primer usuario es administrador) o inicia sesión.", v); }
                     None => self.inst_msg = "Todavía no responde en este equipo. Espera a que PowerShell termine de instalar y arrancar, y vuelve a pulsar.".into(),
                 },
+                Msg::ExploreList(r) => { self.exp_busy = false; match r { Ok(v) => { self.exp_msg = None; self.exp_items = v; if self.exp_items.is_empty() { self.exp_msg = Some((true, "Sin resultados.".into())); } } Err(e) => { self.exp_items.clear(); let t = e.to_string(); self.exp_msg = Some((false, if t.contains("404") { "Tu servidor es antiguo: este filtro necesita SynapseBox 2.26 o superior".into() } else { t })); } } }
+                Msg::ExploreInfo(ok, t) => self.exp_msg = Some((ok, t)),
                 Msg::IsAdmin(a) => { self.is_admin = a; if !a && self.page == Page::Admin { self.page = Page::Home; } }
                 Msg::AdminUsers(r) => { self.adm_busy = false; match r { Ok(v) => self.adm_users = v, Err(e) => self.adm_msg = Some((false, e.to_string())) } }
                 Msg::AdminList(u, p, r) => {
@@ -216,6 +262,53 @@ impl Gui {
         }
     }
 
+    // ---------- Explorar: buscar y filtrar tus archivos ----------
+    fn exp_load(&mut self, ctx: &egui::Context, ep: &'static str, q: Vec<(&'static str, String)>) {
+        self.exp_busy = true; self.exp_msg = None; let a = self.api();
+        self.spawn(ctx, move || { let qq: Vec<(&str, &str)> = q.iter().map(|(k, v)| (*k, v.as_str())).collect(); a.explore(ep, &qq) }, Msg::ExploreList);
+    }
+    fn explore_ui(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
+        hero(ui, "Explorar", "Busca y filtra tus archivos");
+        let mut go: Option<(&'static str, Vec<(&'static str, String)>)> = None;
+        ui.horizontal(|ui| {
+            let r = ui.add(egui::TextEdit::singleline(&mut self.exp_q).hint_text("Buscar por nombre (2 letras o más)").desired_width(320.0));
+            if (ui.button("Buscar").clicked() || (r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)))) && self.exp_q.trim().len() >= 2 { go = Some(("api/search", vec![("q", self.exp_q.trim().to_string())])); }
+        });
+        ui.horizontal_wrapped(|ui| {
+            if ui.button("Recientes").clicked() { go = Some(("api/recent", vec![])); }
+            for (l, t) in [("Imágenes", "images"), ("Vídeos", "video"), ("Audio", "audio"), ("Documentos", "docs"), ("Comprimidos", "archives")] { if ui.button(l).clicked() { go = Some(("api/by-type", vec![("type", t.to_string())])); } }
+            if ui.button("Carpetas vacías").clicked() { go = Some(("api/empty-folders", vec![])); }
+        });
+        if let Some((ep, q)) = go { self.exp_load(ctx, ep, q); }
+        if self.exp_busy { ui.horizontal(|ui| { ui.spinner(); ui.label("Cargando…"); }); }
+        if let Some((ok, t)) = &self.exp_msg { note(ui, if *ok { "ok" } else { "err" }, t); }
+        let (mut dl, mut view, mut cp): (Option<api::Entry>, Option<api::Entry>, Option<String>) = (None, None, None);
+        let items = self.exp_items.clone();
+        for e in &items {
+            ui.horizontal(|ui| {
+                icon(ui, if e.is_dir { "folder" } else { "dot-off" }, None);
+                ui.label(&e.name); if !e.is_dir { ui.weak(fmt_bytes(e.size)); }
+                ui.weak(ops::parent(&e.path));
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if ui.small_button("Copiar ruta").clicked() { cp = Some(e.path.clone()); }
+                    if !e.is_dir { if ui.small_button("Descargar").clicked() { dl = Some(e.clone()); } if ui.small_button("Ver").clicked() { view = Some(e.clone()); } }
+                });
+            });
+        }
+        if let Some(p) = cp { ctx.copy_text(p); self.exp_msg = Some((true, "Ruta copiada".into())); }
+        if let Some(e) = dl {
+            if let Some(dest) = rfd::FileDialog::new().set_title("Guardar archivo").set_file_name(&e.name).save_file() {
+                let (a, p) = (self.api(), e.path.clone());
+                self.spawn(ctx, move || a.download(&p, &dest, false), |r| match r { Ok(()) => Msg::ExploreInfo(true, "Archivo guardado".into()), Err(e) => Msg::ExploreInfo(false, e.to_string()) });
+            }
+        }
+        if let Some(e) = view {
+            let dir = std::env::temp_dir().join("SynapseBoxView"); let _ = std::fs::remove_dir_all(&dir); let _ = std::fs::create_dir_all(&dir);
+            let dest = dir.join(&e.name); let (a, p) = (self.api(), e.path.clone()); self.exp_msg = Some((true, "Abriendo…".into()));
+            self.spawn(ctx, move || { a.download(&p, &dest, false)?; open(&dest.to_string_lossy()); Ok::<(), Fail>(()) }, |r| match r { Ok(()) => Msg::ExploreInfo(true, "Abierto con la app predeterminada".into()), Err(e) => Msg::ExploreInfo(false, e.to_string()) });
+        }
+    }
+
     // ---------- Archivos de usuarios (solo administradores) ----------
     fn adm_load_users(&mut self, ctx: &egui::Context) { self.adm_busy = true; self.adm_msg = None; let a = self.api(); self.spawn(ctx, move || a.admin_users(), Msg::AdminUsers); }
     fn adm_load(&mut self, ctx: &egui::Context) {
@@ -224,8 +317,7 @@ impl Gui {
         self.spawn(ctx, move || { let r = a.admin_list(&u, &p); (u, p, r) }, |(u, p, r)| Msg::AdminList(u, p, r));
     }
     fn admin_ui(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
-        ui.heading("Archivos de usuarios");
-        ui.weak("Solo administradores: ver, descargar y eliminar. No se crea, modifica ni renombra nada.");
+        hero(ui, "Archivos de usuarios", "Solo administradores: ver, descargar y eliminar. No se crea ni modifica nada.");
         ui.add_space(8.0);
         if !self.adm_loaded { self.adm_loaded = true; if self.adm_user.is_some() { self.adm_load(ctx); } else { self.adm_load_users(ctx); } }
         if self.adm_busy { ui.horizontal(|ui| { ui.spinner(); ui.label("Cargando…"); }); }
@@ -361,11 +453,19 @@ impl Gui {
 
     // ---------- Inicio ----------
     fn home_ui(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
-        ui.heading("Inicio"); ui.add_space(8.0);
+        hero(ui, "Inicio", "Tu nube, en tu escritorio");
         if self.usage_t.map_or(true, |t| t.elapsed() > Duration::from_secs(60)) {
             self.usage_t = Some(Instant::now());
             let a = self.api(); self.spawn(ctx, move || a.usage().ok(), Msg::Usage);
         }
+        let tw = (ui.available_width() - 27.0) / 4.0;
+        ui.horizontal(|ui| {
+            if tile(ui, "upload", "Subir", tw) { if let Some(files) = rfd::FileDialog::new().set_title("Elegir archivos para subir").pick_files() { self.start_upload(ctx, files); } }
+            if tile(ui, "sync", "Sincronizar", tw) { self.sync_now(ctx); }
+            if tile(ui, "search", "Explorar", tw) { self.page = Page::Explore; self.exp_items.clear(); self.exp_msg = None; }
+            if tile(ui, "home", "Panel web", tw) { open(&format!("{}/panel.html", self.cfg.server)); }
+        });
+        ui.add_space(6.0);
         let usage = self.usage;
         let (server, user) = (self.cfg.server.clone(), self.cfg.username.clone());
         card(ui, "Tu espacio", |ui| {
@@ -420,7 +520,7 @@ impl Gui {
 
     // ---------- Sincronización ----------
     fn sync_ui(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
-        ui.heading("Sincronización"); ui.add_space(8.0);
+        hero(ui, "Sincronización", "Tu carpeta del PC, igual que tu SynapseBox");
         let c = self.cfg.clone();
         card(ui, "Carpetas", |ui| {
             ui.label("Carpeta de este PC");
@@ -488,7 +588,7 @@ impl Gui {
 
     // ---------- Actualizaciones ----------
     fn updates_ui(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
-        ui.heading("Actualizaciones"); ui.add_space(8.0);
+        hero(ui, "Actualizaciones", "Mantén la app al día");
         card(ui, "Versión instalada", |ui| {
             ui.label(format!("SynapseBox para Windows {}", config::VERSION));
             let mut auto = self.cfg.update_auto;
@@ -528,7 +628,7 @@ impl Gui {
 
     // ---------- Cuenta ----------
     fn account_ui(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
-        ui.heading("Cuenta"); ui.add_space(8.0);
+        hero(ui, "Cuenta", "Tu sesión y tus datos");
         let c = self.cfg.clone();
         card(ui, "Sesión", |ui| {
             ui.label(format!("Usuario: {}", c.username)); ui.label(format!("Servidor: {}", c.server));
@@ -595,6 +695,7 @@ impl eframe::App for Gui {
             ui.add_space(14.0);
             let mut nav = vec![(Page::Home, "home", "Inicio"), (Page::Sync, "sync", "Sincronización")];
             if self.is_admin { nav.push((Page::Admin, "folder", "Archivos de usuarios")); }
+            nav.insert(2, (Page::Explore, "search", "Explorar"));
             nav.push((Page::Updates, "update", "Actualizaciones")); nav.push((Page::Account, "account", "Cuenta"));
             for (p, ic, t) in nav {
                 ui.horizontal(|ui| {
@@ -609,6 +710,7 @@ impl eframe::App for Gui {
                 Page::Home => self.home_ui(ui, ctx),
                 Page::Sync => self.sync_ui(ui, ctx),
                 Page::Admin => self.admin_ui(ui, ctx),
+                Page::Explore => self.explore_ui(ui, ctx),
                 Page::Updates => self.updates_ui(ui, ctx),
                 Page::Account => self.account_ui(ui, ctx),
             });

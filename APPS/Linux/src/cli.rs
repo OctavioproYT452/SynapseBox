@@ -38,6 +38,11 @@ ADMINISTRADORES (solo cuentas de administrador; leer, descargar y borrar; no cre
   admin get <usuario> <ruta> [-o destino] descarga un archivo de un usuario
   admin rm <usuario> <ruta>… [-y]         borra a la papelera de ese usuario
 
+EXPLORAR (servidor 2.26 o superior para type y empty-folders)
+  recent [-l] [--json]                    archivos modificados hace poco
+  type <images|video|audio|docs|archives> [-l] [--json]   tus archivos de un tipo
+  empty-folders [--json]                  carpetas vacías
+
 SERVIDOR EN ESTE EQUIPO
   install-server [-y] [--no-start]        instala SynapseBox (el servidor) aquí con el instalador oficial y lo arranca
                                           (después: sbox server http://localhost:3001)
@@ -185,6 +190,9 @@ pub fn run(argv: Vec<String>) -> i32 {
         "search" | "buscar" => search(rest),
         "trash" | "papelera" => trash(rest),
         "admin" => admin(rest),
+        "recent" | "recientes" => recent(rest),
+        "type" | "tipo" => by_type(rest),
+        "empty-folders" | "vacias" => empty_folders(rest),
         "install-server" | "instalar-servidor" => install_server(rest),
         "sync" | "sincronizar" => sync(rest),
         "config" | "ajustes" => config_cmd(rest),
@@ -401,6 +409,22 @@ fn share(args: &[String]) {
     let days = a.get("days").map(|d| d.parse::<u32>().unwrap_or_else(|_| die("--days debe ser un número"))).unwrap_or(0);
     println!("{}", ok(api.share(&ops::clean(p), days, a.get("password").unwrap_or(""))));
 }
+/// Lista de resultados: `-l` añade tamaño y fecha. Con `--json`, una matriz con name, path, isDir, size, mtime.
+fn show_items(v: Vec<api::Entry>, a: &Args) {
+    if a.has("json") { json_out(&serde_json::Value::Array(v.iter().map(|e| serde_json::json!({"name": e.name, "path": e.path, "isDir": e.is_dir, "size": e.size, "mtime": e.mtime})).collect())); return }
+    if v.is_empty() { println!("Sin resultados."); return }
+    for e in v {
+        if a.has("l") { println!("{:>10}  {}  {}{}", if e.is_dir { "-".to_string() } else { fmt_bytes(e.size) }, date(e.mtime), e.path, if e.is_dir { "/" } else { "" }); }
+        else { println!("{}{}", e.path, if e.is_dir { "/" } else { "" }); }
+    }
+}
+fn recent(args: &[String]) { let a = Args::parse(args, &[], &[]); let (_, api) = session(); show_items(ok(api.explore("api/recent", &[])), &a); }
+fn by_type(args: &[String]) {
+    let a = Args::parse(args, &[], &[]); let (_, api) = session();
+    let Some(t) = a.pos.first() else { die("uso: sbox type <images|video|audio|docs|archives> [-l] [--json]") };
+    show_items(ok(api.explore("api/by-type", &[("type", t.as_str())])), &a);
+}
+fn empty_folders(args: &[String]) { let a = Args::parse(args, &[], &[]); let (_, api) = session(); show_items(ok(api.explore("api/empty-folders", &[])), &a); }
 fn search(args: &[String]) {
     let (_, api) = session();
     if args.is_empty() { die("uso: sbox search <texto>") }
@@ -496,7 +520,7 @@ fn update_cmd(args: &[String]) {
         Some(x) => die(&format!("subcomando desconocido «{}»", x)),
     }
 }
-const CMDS: &str = "login register logout server status whoami usage sessions passwd ls upload download mkdir rm mv cp share search trash admin install-server sync config service daemon update gui completion version help";
+const CMDS: &str = "login register logout server status whoami usage sessions passwd ls upload download mkdir rm mv cp share search trash admin recent type empty-folders install-server sync config service daemon update gui completion version help";
 fn completion(args: &[String]) {
     match args.first().map(|s| s.as_str()) {
         Some("zsh") => println!("#compdef sbox\n_arguments '1: :({})' '*:file:_files'\ncompdef _sbox sbox", CMDS),
