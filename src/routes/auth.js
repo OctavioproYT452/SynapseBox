@@ -27,6 +27,7 @@ router.post("/api/register", wrap(async (req, res) => {
   const id = Number(r.lastInsertRowid), dk = disks.assign(Number(setting("default_quota_mb")) || 100);
   run("UPDATE users SET disk_id=? WHERE id=?", dk, id);
   await fsp.mkdir(path.join(disks.rootOf(dk), get("SELECT uuid FROM users WHERE id=?", id).uuid), { recursive: true });
+  require("../services/enterprise").emit("user.registered", { username, id });
   const tk = startSession(req, res, id);
   req.user = { username };
   res.json({ success: true, ...tk, codes: tf.makeCodes(id) }); // códigos de recuperación: se muestran una sola vez

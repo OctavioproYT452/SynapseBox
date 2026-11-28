@@ -1,7 +1,12 @@
-# Versión 2.26.0
+# Versión 2.27.0
 
-- **Por tipo (nuevo):** botón en el panel que lista tus archivos de un tipo (imágenes, vídeo, audio, documentos, comprimidos). API `GET /api/by-type?type=`.
-- **Carpetas vacías (nuevo):** botón que lista las carpetas sin contenido. API `GET /api/empty-folders`. No borra nada.
-- **`/api/health`:** devuelve también `uptime` y `time`, útil para monitorizar el servidor.
-- **API para apps:** `api` sube a 4 y `/api/client/info` anuncia `by-type` y `empty-folders`.
-- **README:** instalación y ubicación de las apps de escritorio (Windows: binarios en `APPS/Windows/dist`, código en `APPS/Windows`) y las APIs nuevas documentadas.
+Funciones pensadas para organizaciones (todas opcionales y desactivadas por defecto; panel **Admin → Empresa**):
+
+- **Lista de IPs para administrar:** limita `/admin` y `/api/admin/*` a IPs o rangos CIDR. Impide guardar una lista que te deje fuera.
+- **Contraseñas complejas:** mayúscula, minúscula, número y símbolo en contraseñas nuevas.
+- **Webhook firmado (HMAC-SHA256):** eventos `admin.action` y `user.registered` a una URL https, con protección anti-SSRF y botón de prueba.
+- **Cumplimiento:** resumen de 2FA, administradores sin 2FA, usuarios inactivos y cuotas casi llenas.
+- **Exportes CSV:** usuarios y auditoría (compatibles con Excel).
+- **Métricas Prometheus:** `GET /metrics` con `METRICS_TOKEN`.
+- El registro de auditoría sigue siendo desactivable.
+- **README:** nueva sección «Funciones para empresas» y APIs en la tabla.

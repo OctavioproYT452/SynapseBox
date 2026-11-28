@@ -23,6 +23,7 @@ app.use("/dav", require("./routes/webdav").dav); // WebDAV antes del lector de c
 app.use(security.body);
 app.use(security.csrf); // protección CSRF: el origen debe coincidir con el host
 app.use(session);
+app.use(require("./services/enterprise").ipGuard); // lista de IPs del panel de administración (2.27.0)
 app.use(require("./services/audit").middleware); // registro de auditoría de las acciones de administración
 const { setting } = require("./lib/settings");
 app.use((req, res, next) => { // modo mantenimiento: solo los administradores pueden usar la API
@@ -58,6 +59,7 @@ app.use(require("./routes/discord-custom"));
 app.use(require("./routes/themes"));
 app.use(require("./routes/tmedia"));
 app.use(require("./routes/explore"));
+app.use(require("./routes/enterprise"));
 app.use(require("./routes/webdav"));
 app.use(require("./routes/office"));
 

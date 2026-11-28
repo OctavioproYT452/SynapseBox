@@ -4,10 +4,11 @@ const { setting } = require("../lib/settings");
 const enabled = () => setting("audit_enabled") !== "0"; // el administrador puede desactivarlo (menos escrituras en disco)
 const SKIP = /^\/api\/admin\/(ai|ads)\/test$/;
 const clean = s => String(s ?? "").replace(/[\u0000-\u001f]/g, " ").slice(0, 200);
-const log = (req, action, detail = "") => { if (!enabled()) return; try { run("INSERT INTO audit VALUES(?,?,?,?,?)", now(), clean(req.user?.username), clean(action), clean(detail), clean(req.ip)); } catch { } };
+const ent = require("./enterprise");
+const log = (req, action, detail = "") => { ent.emit("admin.action", { user: clean(req.user?.username), action: clean(action), detail: clean(detail), ip: clean(req.ip) }); if (!enabled()) return; try { run("INSERT INTO audit VALUES(?,?,?,?,?)", now(), clean(req.user?.username), clean(action), clean(detail), clean(req.ip)); } catch { } };
 // Middleware: anota toda acción de administración que cambia algo y termina bien
 const middleware = (req, res, next) => {
-  if (enabled() && req.method !== "GET" && req.path.startsWith("/api/admin/") && !SKIP.test(req.path))
+  if (req.method !== "GET" && req.path.startsWith("/api/admin/") && !SKIP.test(req.path))
     res.on("finish", () => { if (res.statusCode < 400) log(req, req.method + " " + req.path.replace("/api/admin/", ""), req.body?.username || req.body?.user || ""); });
   next();
 };

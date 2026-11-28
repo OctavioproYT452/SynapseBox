@@ -32,7 +32,7 @@ function setUsername(id, name) { // el nombre solo existe en la tabla users: tod
   if (get("SELECT 1 x FROM users WHERE username=? AND id<>?", name, id)) throw Error("Ese nombre de usuario ya está en uso");
   run("UPDATE users SET username=? WHERE id=?", name, id);
 }
-const checkPw = p => { const m = Math.max(8, Number(setting("min_password")) || 8); if (String(p || "").length < m) throw Error(`La contraseña debe tener al menos ${m} caracteres`); if (String(p).length > 1024) throw Error("Contraseña demasiado larga"); };
+const checkPw = p => { const m = Math.max(8, Number(setting("min_password")) || 8); if (String(p || "").length < m) throw Error(`La contraseña debe tener al menos ${m} caracteres`); if (String(p).length > 1024) throw Error("Contraseña demasiado larga"); require("./enterprise").complexity(p); };
 // Elimina los bloqueos de intentos fallidos ya caducados
 const purgeFails = () => { for (const [k, f] of fails) if (f.until < now()) fails.delete(k); };
 
