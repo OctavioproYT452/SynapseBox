@@ -22,6 +22,16 @@ Necesita un servidor SynapseBox **2.24.1 o superior** (trae la API de sincroniza
 - **Acceso a todos los archivos:** Android 11+ → permiso «Acceso a todos los archivos»; Android 7–10 → permiso de almacenamiento. Sin él no se puede sincronizar una carpeta elegida libremente.
 - **Seguridad:** el token se guarda cifrado con el Android Keystore (AES-GCM); admite 2FA; avisa si usas `http://`.
 
+## Novedades 1.9.0
+
+- **Barra inferior de navegación** con burbuja flotante que se desliza hasta la pestaña elegida (con los colores de Apariencia). Las secciones ya no están todas en la pantalla principal:
+  - **Inicio:** espacio usado, estado de la sincronización y accesos rápidos.
+  - **Archivos:** Subir, Mis archivos, Explorar y abrir en el navegador.
+  - **Sync:** estado, Sincronizar ahora y Configurar.
+  - **Admin** (solo cuentas de administrador): Archivos de usuarios.
+  - **Ajustes:** Más funciones, Apariencia, Seguridad, Actualizaciones y Cuenta.
+- El botón Atrás vuelve a Inicio antes de cerrar la app.
+
 ## Novedades 1.8.0
 
 - **Rediseño de todos los menús:** nueva barra superior con flecha de volver, título grande y línea de acento (Apariencia, Seguridad, Más funciones, Actualizaciones, Sincronización, Archivos de usuarios…); tarjetas más redondeadas con título en color de acento; botones secundarios «tonales» en lugar de con borde.
