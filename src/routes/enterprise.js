@@ -12,9 +12,11 @@ const set = (k, v) => run("INSERT OR REPLACE INTO settings VALUES(?,?)", k, Stri
 const view = () => ({
   pw_complex: setting("pw_complex") === "1", admin_ip_allow: setting("admin_ip_allow") || "",
   webhook_url: setting("webhook_url") || "", webhook_secret_set: !!setting("webhook_secret"), webhook_status: ent.status,
-  metrics: !!process.env.METRICS_TOKEN
+  metrics: !!process.env.METRICS_TOKEN, legal_operator: setting("legal_operator") || "", legal_contact: setting("legal_contact") || ""
 });
 router.get("/api/admin/enterprise", needAdmin, (req, res) => res.json(view()));
+// Pública: datos del operador y versión para la página legal
+router.get("/api/legal", (req, res) => res.json({ operator: setting("legal_operator") || "", contact: setting("legal_contact") || "", version: ver.info().current, updated: "2026-11-27" }));
 router.post("/api/admin/enterprise", needAdmin, wrap(async (req, res) => {
   const b = req.body || {}; let newSecret;
   if (b.admin_ip_allow !== undefined) {
@@ -22,6 +24,7 @@ router.post("/api/admin/enterprise", needAdmin, wrap(async (req, res) => {
     if (list.length && !ent.matches(list, req.ip)) throw Error(`Tu IP actual (${req.ip}) no está en la lista: te quedarías sin acceso. Añádela primero.`);
     set("admin_ip_allow", txt);
   }
+  for (const k of ["legal_operator", "legal_contact"]) if (b[k] !== undefined) set(k, String(b[k]).replace(/[\u0000-\u001f]/g, " ").trim().slice(0, 200));
   if (b.pw_complex !== undefined) set("pw_complex", b.pw_complex ? "1" : "0");
   if (b.webhook_url !== undefined) {
     const u = String(b.webhook_url).trim();

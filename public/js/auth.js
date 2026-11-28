@@ -12,7 +12,7 @@ const tabs=$('#tabs');
 function setMode(m){mode=m;const reg=m==='register';$$('.tab').forEach(t=>t.classList.toggle('on',t.dataset.m===m));
   tabs.style.setProperty('--x',reg?'100%':'0');
   $('#go .lbl').textContent=reg?'Crear cuenta':'Entrar';$('#p').autocomplete=reg?'new-password':'current-password';
-  $('#p').placeholder=reg?'Mínimo 8 caracteres':'';$('#l2').hidden=!reg;$('#meter').hidden=!reg;$('#forgot').parentElement.hidden=reg;$('#e').textContent='';
+  $('#p').placeholder=reg?'Mínimo 8 caracteres':'';$('#l2').hidden=!reg;$('#accept').hidden=!reg;$('#meter').hidden=!reg;$('#forgot').parentElement.hidden=reg;$('#e').textContent='';
   sub.textContent=reg?'Crea tu cuenta en segundos.':'Tus archivos, en tu propio servidor.'}
 $$('.tab').forEach(t=>t.onclick=()=>setMode(t.dataset.m));
 api('/api/session').then(s=>{if(!s.registration){$('#regTab').hidden=true;tabs.classList.add('one');tabs.style.display='none'}});

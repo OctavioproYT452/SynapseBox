@@ -1,12 +1,8 @@
-# Versión 2.27.0
+# Versión 2.28.0
 
-Funciones pensadas para organizaciones (todas opcionales y desactivadas por defecto; panel **Admin → Empresa**):
-
-- **Lista de IPs para administrar:** limita `/admin` y `/api/admin/*` a IPs o rangos CIDR. Impide guardar una lista que te deje fuera.
-- **Contraseñas complejas:** mayúscula, minúscula, número y símbolo en contraseñas nuevas.
-- **Webhook firmado (HMAC-SHA256):** eventos `admin.action` y `user.registered` a una URL https, con protección anti-SSRF y botón de prueba.
-- **Cumplimiento:** resumen de 2FA, administradores sin 2FA, usuarios inactivos y cuotas casi llenas.
-- **Exportes CSV:** usuarios y auditoría (compatibles con Excel).
-- **Métricas Prometheus:** `GET /metrics` con `METRICS_TOKEN`.
-- El registro de auditoría sigue siendo desactivable.
-- **README:** nueva sección «Funciones para empresas» y APIs en la tabla.
+- **Créditos dentro de la web:** nueva página pública `/legal.html` con la sección de Créditos (autor, co-owner, repositorio, versión, licencia MIT y componentes de código abierto).
+- **Política de privacidad, Términos de uso, Cookies, Seguridad y Contacto:** textos completos, adaptados a lo que realmente hace el servidor. Atajos `/privacidad`, `/terminos`, `/cookies`, `/creditos`, `/contacto`, `/seguridad`.
+- **Enlaces en todas partes:** pie en el inicio de sesión, panel, temas, administración y enlaces compartidos; el registro indica que se aceptan los términos y la política.
+- **Admin → Empresa → Información legal:** campos de operador y contacto que aparecen en las páginas. API pública `GET /api/legal`.
+- Las plantillas son generales y no sustituyen asesoría legal; el operador debe revisarlas.
+- **README:** sección «Páginas legales y créditos» y la API nueva.

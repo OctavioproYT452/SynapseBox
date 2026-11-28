@@ -63,6 +63,9 @@ app.use(require("./routes/enterprise"));
 app.use(require("./routes/webdav"));
 app.use(require("./routes/office"));
 
+// ---------- páginas legales (públicas): /privacidad, /terminos, /cookies, /creditos, /contacto ----------
+for (const k of ["privacidad", "terminos", "cookies", "creditos", "contacto", "seguridad"]) app.get("/" + k, (req, res) => res.redirect("/legal.html#" + k));
+
 // ---------- páginas estáticas protegidas ----------
 app.get(["/", "/index.html"], (req, res, next) => req.user ? res.redirect("/panel.html") : next());
 app.get(["/panel.html", "/themes.html"], (req, res, next) => req.user ? next() : res.redirect("/"));

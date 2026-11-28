@@ -200,3 +200,5 @@ dialog{overflow-x:hidden}dialog form,dialog form>div,dialog .atabs{min-width:0}
 :where(a,button,input,select,textarea,summary,[tabindex]):focus-visible{outline:2px solid var(--accent,#4f8cff);outline-offset:2px}
 button,a,[role=button]{-webkit-tap-highlight-color:transparent}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+.legalbar{text-align:center;padding:18px 12px;font-size:13px;color:var(--muted)}.legalbar a{color:var(--muted);margin:0 8px;text-decoration:underline}.legalbar a:hover{color:var(--accent)}
+.authpage .legalbar{position:relative;z-index:1}

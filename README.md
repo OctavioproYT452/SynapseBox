@@ -11,7 +11,7 @@ Sube, organiza, edita y comparte archivos desde cualquier dispositivo, con usuar
 
 </div>
 
-> **Versión 2.27.0.** Qué ha cambiado en esta versión: consulta [RELEASE.md](RELEASE.md).
+> **Versión 2.28.0.** Qué ha cambiado en esta versión: consulta [RELEASE.md](RELEASE.md).
 >
 > **Apps:** [Android](#app-de-android) · [Windows](#app-de-windows-escritorio) · [Linux](#app-de-linux-escritorio) — sincronizan una carpeta con tu SynapseBox; las de escritorio traen además el comando `sbox` para la terminal.
 
@@ -265,6 +265,13 @@ Todo se configura en **Admin → Empresa** (o por API) y está desactivado por d
 - **Exportes CSV:** usuarios y registro de auditoría (UTF-8 con BOM, abre bien en Excel; las celdas que empiezan por `= + - @` se neutralizan).
 - **Métricas Prometheus:** define la variable de entorno `METRICS_TOKEN` y consulta `GET /metrics` con `Authorization: Bearer <token>`. Sin la variable, devuelve 404. Métricas: `synapsebox_info`, `uptime_seconds`, `users`, `users_suspended`, `users_with_2fa`, `storage_used_bytes`, `sessions_active`, `shares`, `process_resident_memory_bytes`.
 
+### Páginas legales y créditos (2.28.0)
+
+El servidor incluye, sin configuración previa, una página pública `/legal.html` con **Política de privacidad, Términos de uso, Cookies, Seguridad, Créditos y Contacto** (atajos: `/privacidad`, `/terminos`, `/cookies`, `/creditos`, `/contacto`, `/seguridad`). Se enlazan en el pie del inicio de sesión, el panel, los temas, la administración y las páginas de enlaces compartidos, y el formulario de registro avisa de que crear la cuenta implica aceptarlos.
+
+- En **Admin → Empresa → Información legal** indica el **operador** (responsable de los datos) y un **contacto**; se muestran en la política y en Contacto. `GET /api/legal` (pública) devuelve `{operator, contact, version, updated}`.
+- Los textos son una **plantilla general** que describe lo que hace SynapseBox (datos de cuenta, IP y sesiones, cookie `fc_sid`, registro de auditoría, servicios opcionales como IA, Discord y webhooks). **No es asesoría legal**: revísala y adáptala a tu caso y legislación editando `public/legal.html`.
+
 ### Limpieza de espacio
 
 Botón **Limpieza** de la barra del panel (o del menú de usuario): analiza tu carpeta y muestra los **25 archivos más grandes** y los **duplicados** (mismo contenido, comprobado con SHA-256, no solo el nombre), con el espacio que sobra. Cada archivo tiene un botón para moverlo a la papelera. Revisa hasta 30 000 archivos; si tienes más, avisa de que el análisis es parcial. Ruta: `GET /api/cleanup`.
@@ -412,7 +419,7 @@ En **Admin → IA → Anuncios** el administrador decide, para el asistente del 
 - La versión instalada está en `data/version.json`:
 
   ```json
-  { "version": "2.27.0" }
+  { "version": "2.28.0" }
   ```
 
 - Cada 2 minutos el servidor lee ese archivo local y lo compara con el `data/version.json` publicado en GitHub. Si el de GitHub es más nuevo (se comparan los números: `2.10` es mayor que `2.9`), los **administradores** ven un aviso de nueva versión con instrucciones para actualizar.
@@ -921,7 +928,8 @@ Todas las rutas `/api/*` devuelven JSON y requieren sesión, salvo `login`, `reg
 | `GET` / `POST` / `DELETE` | `/api/theme-media`, `/tm/<uuid>/<archivo>` | Medios del tema (carpeta *Temas*): listar, subir, borrar y servir. |
 | `GET` | `/api/convert` | Convierte un documento de Office a PDF con LibreOffice para la vista previa (501 si no está instalado). |
 | `GET` / `POST` | `/api/webdav`, `/api/webdav/enable`, `/api/webdav/disable` | Estado, activación (pide la contraseña y devuelve la clave una sola vez) y desactivación del acceso WebDAV. |
-| `GET` / `POST` | `/api/admin/enterprise` | Admin. Lee/guarda `{pw_complex, admin_ip_allow, webhook_url, webhook_regen}`; devuelve `new_secret` solo al crear o regenerar el secreto. |
+| `GET` | `/api/legal` | Pública: operador, contacto, versión y fecha de la política (página legal). |
+| `GET` / `POST` | `/api/admin/enterprise` | Admin. Lee/guarda `{pw_complex, admin_ip_allow, webhook_url, webhook_regen, legal_operator, legal_contact}`; devuelve `new_secret` solo al crear o regenerar el secreto. |
 | `POST` | `/api/admin/enterprise/webhook-test` | Admin. Envía un evento `test` al webhook. |
 | `GET` | `/api/admin/compliance` | Admin. Resumen de cumplimiento (2FA, inactivos, cuotas, políticas). |
 | `GET` | `/api/admin/export/users.csv`, `/api/admin/export/audit.csv` | Admin. Exportes CSV. |
